@@ -1,0 +1,15 @@
+{
+  "projectName": "Untitled Project",
+  "layers": [
+    {
+      "id": "layer-1776259294385",
+      "assetId": 1776259292840,
+      "name": "test.mp4",
+      "type": "video",
+      "url": "blob:http://localhost:5173/d9fc23a4-231b-4297-914b-98071db59172",
+      "startTime": 0,
+      "duration": 5
+    }
+  ],
+  "exportedAt": "2026-04-15T13:21:37.014Z"
+}

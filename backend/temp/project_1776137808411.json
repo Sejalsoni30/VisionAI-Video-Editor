@@ -1,0 +1,16 @@
+{
+  "projectName": "My Local Project",
+  "layers": [
+    {
+      "id": "layer-1776137794929",
+      "assetId": "asset_1776137793435",
+      "name": "13049001-uhd_3840_2160_60fps.mp4",
+      "type": "video",
+      "url": "blob:http://localhost:5173/bd9205f6-bc4b-43d9-9b47-93aafd7ffbba",
+      "startTime": 0,
+      "duration": 5,
+      "lastUpdated": 1776137806078
+    }
+  ],
+  "exportedAt": "2026-04-14T03:36:48.402Z"
+}

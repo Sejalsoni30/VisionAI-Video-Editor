@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary-blue: #2563eb;
+  }
+
+  body {
+    @apply antialiased m-0 p-0 overflow-hidden;
+    background-color: #09090b; /* Zinc 950 */
+    color: #ffffff;
+  }
+
+  /* Smooth Focus outlines */
+  :focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-zinc-950;
+  }
+}
+
+/* Custom Selection Color */
+::selection {
+  background: rgba(37, 99, 235, 0.3);
+  color: white;
+}

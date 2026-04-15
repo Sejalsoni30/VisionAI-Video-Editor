@@ -1,0 +1,39 @@
+{
+  "projectName": "my project",
+  "layers": [
+    {
+      "id": "layer-1776138694737",
+      "assetId": 1776138693311,
+      "name": "12217613_3840_2160_30fps.mp4",
+      "type": "video",
+      "url": "blob:http://localhost:5173/6572f10b-73d2-4e03-a913-a5dda8ac0f54",
+      "startTime": 0,
+      "duration": 5,
+      "lastUpdated": 1776138697565
+    },
+    {
+      "id": "2a99231f-67e9-4c3a-b87d-5ab28a6e6587",
+      "assetId": "music-1",
+      "name": "bhavbhaktioriginal-hanuman-sankat-nashak-467046",
+      "url": "http://localhost:5000/music/bhavbhaktioriginal-hanuman-sankat-nashak-467046.mp3",
+      "type": "audio",
+      "startTime": 0,
+      "duration": 30
+    },
+    {
+      "id": "text-1776138723051",
+      "type": "text",
+      "content": "my name",
+      "trackId": "track-3",
+      "startTime": 0,
+      "duration": 5,
+      "style": {
+        "fontSize": 32,
+        "fontWeight": "bold",
+        "color": "#ffffff",
+        "textAlign": "center"
+      }
+    }
+  ],
+  "exportedAt": "2026-04-14T03:52:10.669Z"
+}

@@ -1,0 +1,16 @@
+{
+  "projectName": "My Local Project",
+  "layers": [
+    {
+      "id": "layer-1776136378043",
+      "assetId": "asset_1776136373362",
+      "name": "12272534_3840_2160_30fps.mp4",
+      "type": "video",
+      "url": "blob:http://localhost:5173/fb9275d7-3801-43e6-bc30-7d6e5b3499ef",
+      "startTime": 0,
+      "duration": 5,
+      "lastUpdated": 1776136381247
+    }
+  ],
+  "exportedAt": "2026-04-14T03:13:05.388Z"
+}

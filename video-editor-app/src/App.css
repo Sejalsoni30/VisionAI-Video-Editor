@@ -1,0 +1,37 @@
+/* Page Transition Effect */
+.page-enter {
+  opacity: 0;
+  transform: scale(0.98);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Attractive Gradient Text */
+.logo-text {
+  background: linear-gradient(to right, #60a5fa, #a855f7);
+  /* -webkit-background-clip: text; */
+  -webkit-text-fill-color: transparent;
+}
+
+/* Hide arrows from number inputs (Chrome, Safari, Edge, Opera) */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Glassmorphism utility */
+.glass-ui {
+  background: rgba(24, 24, 27, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Timeline grid pattern */
+.timeline-bg {
+  background-image: linear-gradient(to right, #27272a 1px, transparent 1px);
+  background-size: 50px 100%;
+}

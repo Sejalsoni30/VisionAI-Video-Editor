@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #09090b; /* Zinc 950 */
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    overflow: hidden;
+  }
+}
+
+/* Custom Selection Logic for v4 */
+::selection {
+  background-color: rgba(59, 130, 246, 0.3); /* Blue 500 with 30% opacity */
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #27272a; /* Zinc 800 */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #3f3f46; /* Zinc 700 */
+}
