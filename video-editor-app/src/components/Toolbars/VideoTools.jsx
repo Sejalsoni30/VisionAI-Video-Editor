@@ -34,9 +34,9 @@ const VideoTools = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoUrl: activeVideo.url, // 👈 'url' ki jagah 'videoUrl' karke dekho
-          startTime: 0,
-          duration: 5,
+          videoUrl: activeVideo.url,
+          startTime: params.startTime || 0,
+          duration: params.duration || 5,
           ...params
         }),
 
