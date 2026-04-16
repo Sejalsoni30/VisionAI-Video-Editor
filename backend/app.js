@@ -25,7 +25,7 @@ const app = express();
 
 // ✅ CORS Configuration: Isse browser connection reset nahi karega
 app.use(cors({
-  origin: true, // Sabko allow karo testing ke liye
+  origin: "https://vision-ai-video-editor.vercel.app/", // Sabko allow karo testing ke liye
   credentials: true
 }));
 
