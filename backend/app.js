@@ -24,11 +24,25 @@ try {
 }
 
 const app = express();
-
+const allowedOrigins = [
+  "https://vision-ai-video-editor.vercel.app/", // Tumhara main domain
+  /\.vercel\.app$/                             // Saare preview domains (Regex use kiya hai)
+];
 // ✅ CORS Configuration: Isse browser connection reset nahi karega
 app.use(cors({
-  origin: "https://vision-ai-video-editor.vercel.app/", // Sabko allow karo testing ke liye
-  credentials: true
+  origin: function (origin, callback) {
+    // Agar origin list mein hai ya regex se match hota hai, toh allow karo
+    if (!origin || allowedOrigins.some(regex => 
+      typeof regex === 'string' ? regex === origin : regex.test(origin)
+    )) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // ✅ Payload Limits: Badi videos ke liye zaroori
@@ -62,12 +76,21 @@ app.get('/', (req, res) => res.json({
     database: "Firebase Firestore Connected 🔥" 
 }));
 
-const PORT = process.env.PORT || 5000;
 
 // ✅ Server Timeout Fix
+const PORT = process.env.PORT || 5000;
+
+// ✅ Server Timeout Fix & Deployment Friendly Logs
 const server = app.listen(PORT, () => {
-    console.log(`🚀 Server running at: http://localhost:${PORT}`);
-    console.log(`📂 Storage folders are ready!`);
+    // Agar hum Render par hain, toh localhost nahi dikhayenge
+    const mode = process.env.NODE_ENV === 'production' ? 'Production' : 'Development';
+    
+    console.log(`🚀 Server running in ${mode} mode on port: ${PORT}`);
+    console.log(`📂 Storage folders and API routes are ready!`);
+    
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`🔗 Local Link: http://localhost:${PORT}`);
+    }
 });
 
 // 10 minutes timeout

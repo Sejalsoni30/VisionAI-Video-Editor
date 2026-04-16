@@ -14,7 +14,7 @@ exports.uploadVideo = async (req, res) => {
         }
 
         console.log("📤 Uploading to Cloudinary...");
-        
+
         // Cloudinary par file bhej rahe hain
         const result = await cloudinary.uploader.upload(req.file.path, {
             resource_type: "video",
@@ -70,7 +70,7 @@ const processVideo = (input, outputName, command, res) => {
         .on('end', () => {
             console.log(`✅ Done: ${outputName}`);
             res.json({
-                url: `http://localhost:5000/temp/${outputName}`,
+                url: `/temp/${outputName}`,
                 fileName: outputName
             });
         })
@@ -145,41 +145,41 @@ exports.addText = (req, res) => {
 
 // Backend: videoController.js
 exports.trimVideo = async (req, res) => {
-  try {
-    const { videoUrl, startTime, duration } = req.body;
-    
-    // 1. Unique name banao taaki files mix na hon
-    const outputFileName = `edited-${Date.now()}.mp4`;
-    const outputPath = path.join(__dirname, '../../uploads', outputFileName);
+    try {
+        const { videoUrl, startTime, duration } = req.body;
 
-    console.log("🎬 Processing URL:", videoUrl);
+        // 1. Unique name banao taaki files mix na hon
+        const outputFileName = `edited-${Date.now()}.mp4`;
+        const outputPath = path.join(__dirname, '../../uploads', outputFileName);
 
-    // 2. FFmpeg ko 'test.mp4' ki jagah 'videoUrl' do
-    ffmpeg(videoUrl) // 👈 Ab ye internet se video uthayega
-      .setStartTime(startTime || 0)
-      .setDuration(duration || 5)
-      .output(outputPath)
-      .on('end', async () => {
-        // 3. Edit hone ke baad Cloudinary par naya version upload karo
-        const result = await cloudinary.uploader.upload(outputPath, { 
-          resource_type: "video",
-          folder: "visionai_edits" 
-        });
-        
-        // 4. Temporary file delete kar do
-        fs.unlinkSync(outputPath);
+        console.log("🎬 Processing URL:", videoUrl);
 
-        res.json({ success: true, url: result.secure_url });
-      })
-      .on('error', (err) => {
-        console.error("FFmpeg Error:", err);
-        res.status(500).json({ success: false, message: err.message });
-      })
-      .run();
+        // 2. FFmpeg ko 'test.mp4' ki jagah 'videoUrl' do
+        ffmpeg(videoUrl) // 👈 Ab ye internet se video uthayega
+            .setStartTime(startTime || 0)
+            .setDuration(duration || 5)
+            .output(outputPath)
+            .on('end', async () => {
+                // 3. Edit hone ke baad Cloudinary par naya version upload karo
+                const result = await cloudinary.uploader.upload(outputPath, {
+                    resource_type: "video",
+                    folder: "visionai_edits"
+                });
 
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+                // 4. Temporary file delete kar do
+                fs.unlinkSync(outputPath);
+
+                res.json({ success: true, url: result.secure_url });
+            })
+            .on('error', (err) => {
+                console.error("FFmpeg Error:", err);
+                res.status(500).json({ success: false, message: err.message });
+            })
+            .run();
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
 };
 
 exports.changeSpeed = (req, res) => {
@@ -203,7 +203,7 @@ exports.changeSpeed = (req, res) => {
         .save(outputPath)
         .on('end', () => {
             res.json({
-                url: `http://localhost:5000/temp/${outputName}`,
+                url: `/temp/${outputName}`,
                 fileName: outputName
             });
         })
@@ -272,7 +272,7 @@ exports.mergeVideos = (req, res) => {
         })
         .on('end', () => {
             res.json({
-                url: `http://localhost:5000/temp/${outputName}`,
+                url: `/temp/${outputName}`,
                 fileName: outputName
             });
         })
@@ -290,8 +290,7 @@ exports.getMusicLibrary = (req, res) => {
             .map((file, index) => ({
                 id: `music-${index}`,
                 name: file.replace('.mp3', '').replace(/_/g, ' '),
-                url: `http://localhost:5000/music/${file}`,
-                duration: "2:45"
+                url: `/music/${file}`, // 👈 Localhost hata diya                duration: "2:45"
             }));
         res.json(musicFiles);
     });
