@@ -54,6 +54,13 @@ const processCloudVideo = (inputUrl, outputName, commandAction, res) => {
         .run();
 };
 
+exports.splitVideo = (req, res) => {
+    const { videoUrl } = req.body;
+    const outputName = `split_${Date.now()}.mp4`;
+    // Split logic: For now, just taking first 10 seconds as a placeholder
+    processCloudVideo(videoUrl, outputName, (f) => f.setDuration(10), res);
+};
+
 // --- 🛠️ 1. UPLOAD ACTION ---
 exports.uploadVideo = async (req, res) => {
     try {
