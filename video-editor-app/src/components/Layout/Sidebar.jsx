@@ -22,7 +22,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     formData.append('video', file);
 
     try {
-      const response = await fetch('http://localhost:5000/video/upload', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/video/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -49,9 +49,9 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
 
   return (
     <aside className="w-[72px] h-full flex flex-col items-center py-6 bg-[#0c0c0e] border-r border-white/[0.04] z-[100] relative shadow-2xl">
-      
+
       {/* ⚡ Logo Section - Floating effect */}
-      <motion.div 
+      <motion.div
         whileHover={{ scale: 1.05, rotate: 5 }}
         whileTap={{ scale: 0.95 }}
         className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-[1.2rem] flex items-center justify-center shadow-[0_8px_20px_rgba(37,99,235,0.35)] mb-8 cursor-pointer group"
@@ -70,7 +70,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
           </motion.div>
           <input type="file" className="hidden" onChange={handleFileChange} accept="video/*,image/*,audio/*" />
         </label>
-        
+
         {/* Tooltip */}
         <div className="absolute left-16 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-zinc-900 border border-white/10 text-white text-[10px] font-bold rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-300 translate-x-2 group-hover:translate-x-0 whitespace-nowrap z-[110] shadow-2xl">
           Quick Upload
@@ -85,19 +85,18 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
           <div key={item.id} className="relative flex items-center justify-center group">
             {/* Active Glow Line */}
             {activeTab === item.id && (
-              <motion.div 
+              <motion.div
                 layoutId="activeTabGlow"
                 className="absolute -left-[30px] w-1 h-8 bg-blue-500 rounded-r-full shadow-[4px_0_15px_rgba(37,99,235,0.8)]"
               />
             )}
-            
+
             <button
               onClick={() => setActiveTab(item.id)}
-              className={`p-3.5 rounded-2xl transition-all duration-300 relative ${
-                activeTab === item.id 
-                ? 'bg-blue-600/10 text-blue-500 ring-1 ring-blue-500/20 shadow-[inset_0_0_12px_rgba(37,99,235,0.1)]' 
-                : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]'
-              }`}
+              className={`p-3.5 rounded-2xl transition-all duration-300 relative ${activeTab === item.id
+                  ? 'bg-blue-600/10 text-blue-500 ring-1 ring-blue-500/20 shadow-[inset_0_0_12px_rgba(37,99,235,0.1)]'
+                  : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04]'
+                }`}
             >
               {item.icon}
             </button>
@@ -113,7 +112,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
       {/* ⚙️ Bottom Settings - FIXED ✅ */}
       <div className="mt-auto pb-4 flex flex-col items-center">
         <div className="w-8 h-[1px] bg-white/5 mb-6"></div>
-        <button 
+        <button
           onClick={() => alert("Settings v2.0 Open")}
           className="p-3.5 text-zinc-600 hover:text-white hover:bg-white/5 rounded-2xl transition-all hover:rotate-90 duration-700"
         >

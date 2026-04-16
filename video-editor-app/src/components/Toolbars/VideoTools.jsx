@@ -30,7 +30,7 @@ const VideoTools = () => {
       });
 
       // VideoTools.jsx ke andar
-      const response = await fetch(`http://localhost:5000/video/${actionType}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/video/${actionType}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

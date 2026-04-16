@@ -25,7 +25,7 @@ const Navbar = () => {
     try {
       console.log("📤 Exporting to Firebase:", { projectName, layersCount: layers.length });
 
-      const response = await fetch('http://localhost:5000/video/export', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/video/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

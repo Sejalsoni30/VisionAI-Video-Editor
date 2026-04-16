@@ -11,7 +11,7 @@ const MusicLibrary = () => {
 
   useEffect(() => {
     // 🌐 Backend se data fetch karna
-    fetch('http://localhost:5000/video/music-library')
+    fetch(`${import.meta.env.VITE_API_URL}/video/music-library`)
       .then(res => res.json())
       .then(data => setSongs(data))
       .catch(err => console.error("Error fetching music:", err));
@@ -22,7 +22,8 @@ const MusicLibrary = () => {
       audio.pause();
       setPlayingId(null);
     } else {
-      audio.src = song.url;
+      // ✅ Yahan URL ko dynamic banao
+      audio.src = `${import.meta.env.VITE_API_URL}${song.url}`;
       audio.play();
       setPlayingId(song.id);
     }
@@ -33,10 +34,11 @@ const MusicLibrary = () => {
       id: crypto.randomUUID(),
       assetId: song.id,
       name: song.name,
-      url: song.url,
+      // ✅ Yahan bhi pura URL bhejo
+      url: `${import.meta.env.VITE_API_URL}${song.url}`,
       type: 'audio', 
       startTime: 0,
-      duration: 30 // seconds
+      duration: 30
     }));
   };
 
@@ -51,7 +53,7 @@ const MusicLibrary = () => {
         {songs.map((song) => (
           <div key={song.id} className="group flex items-center justify-between p-3 bg-zinc-900/50 hover:bg-zinc-800 rounded-lg transition-colors">
             <div className="flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => togglePlay(song)}
                 className="w-8 h-8 flex items-center justify-center bg-zinc-700 rounded-full text-white hover:bg-blue-600"
               >
@@ -62,7 +64,7 @@ const MusicLibrary = () => {
                 <p className="text-[10px] text-zinc-500">{song.duration}</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => handleAddMusic(song)}
               className="p-2 text-zinc-400 hover:text-blue-500 hover:bg-blue-500/10 rounded-md transition-all"
             >
