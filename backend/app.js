@@ -1,11 +1,12 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const admin = require('firebase-admin');
+const cors = require('cors');
+
 // Example:
-const apiBaseUrl = import.meta.env.VITE_API_URL;
+// const apiBaseUrl = import.meta.env.VITE_API_URL;
 // Ab fetch/axios mein is variable ko use karo
 // 📢 Routes Import
 const videoRoutes = require('./src/routes/videoRoutes');
@@ -25,16 +26,15 @@ try {
 
 const app = express();
 const allowedOrigins = [
-  "https://vision-ai-video-editor.vercel.app/", // Tumhara main domain
-  /\.vercel\.app$/                             // Saare preview domains (Regex use kiya hai)
+  "https://vision-ai-video-editor.vercel.app",
+  "https://vision-ai-video-editor-git-main-sejalsoni30s-projects.vercel.app",
+  "http://localhost:5173"
 ];
 // ✅ CORS Configuration: Isse browser connection reset nahi karega
 app.use(cors({
   origin: function (origin, callback) {
-    // Agar origin list mein hai ya regex se match hota hai, toh allow karo
-    if (!origin || allowedOrigins.some(regex => 
-      typeof regex === 'string' ? regex === origin : regex.test(origin)
-    )) {
+    // Allow if origin is in list or matches vercel.app
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
