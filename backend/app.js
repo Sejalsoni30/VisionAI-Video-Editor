@@ -4,7 +4,9 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const admin = require('firebase-admin');
-
+// Example:
+const apiBaseUrl = import.meta.env.VITE_API_URL;
+// Ab fetch/axios mein is variable ko use karo
 // 📢 Routes Import
 const videoRoutes = require('./src/routes/videoRoutes');
 
