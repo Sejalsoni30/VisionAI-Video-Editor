@@ -3,7 +3,7 @@ import { useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
 import { FolderOpen, Video, Image as ImageIcon, Music, Type, Settings, Upload, Zap } from 'lucide-react';
 import { setSelectedLayer, addAsset, addLayer } from '../../store/projectSlice';
-
+import { API_URL } from '../../config';
 const Sidebar = ({ activeTab, setActiveTab }) => {
   const dispatch = useDispatch();
 
@@ -22,7 +22,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     formData.append('video', file);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/video/upload`, {
+      const response = await fetch(`${API_URL}/video/upload`, {
         method: 'POST',
         body: formData,
       });

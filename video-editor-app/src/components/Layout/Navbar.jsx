@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, Share2, Download, Play } from 'lucide-react';
 import { useSelector } from 'react-redux';
-
+import { API_URL } from '../../config';
 const Navbar = () => {
   const [projectName, setProjectName] = useState('Untitled Project');
   const [isEditing, setIsEditing] = useState(false);
@@ -25,7 +25,7 @@ const Navbar = () => {
     try {
       console.log("📤 Exporting to Firebase:", { projectName, layersCount: layers.length });
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/video/export`, {
+      const response = await fetch(`${API_URL}/video/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

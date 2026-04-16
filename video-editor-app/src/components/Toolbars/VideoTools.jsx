@@ -3,7 +3,7 @@ import { Scissors, Timer, RotateCcw, Volume2, Loader2 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateAsset } from "../../store/projectSlice";
 import IconButton from "../Common/IconButton";
-
+import { API_URL } from '../../config';
 const VideoTools = () => {
   const dispatch = useDispatch();
   const { assets, layers, selectedLayerId } = useSelector((state) => state.project);
@@ -30,7 +30,7 @@ const VideoTools = () => {
       });
 
       // VideoTools.jsx ke andar
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/video/${actionType}`, {
+      const response = await fetch(`${API_URL}/video/${actionType}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

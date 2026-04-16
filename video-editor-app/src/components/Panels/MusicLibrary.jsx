@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { addLayer } from '../../store/projectSlice'; // Path check kar lena apne hisab se
 import { Play, Pause, Plus, Music } from 'lucide-react';
-
+import {API_URL} from '../../config';
 const MusicLibrary = () => {
   const [songs, setSongs] = useState([]);
   const [playingId, setPlayingId] = useState(null);
@@ -11,7 +11,7 @@ const MusicLibrary = () => {
 
   useEffect(() => {
     // 🌐 Backend se data fetch karna
-    fetch(`${import.meta.env.VITE_API_URL}/video/music-library`)
+    fetch(`${API_URL}/video/music-library`)
       .then(res => res.json())
       .then(data => setSongs(data))
       .catch(err => console.error("Error fetching music:", err));
@@ -23,7 +23,7 @@ const MusicLibrary = () => {
       setPlayingId(null);
     } else {
       // ✅ Yahan URL ko dynamic banao
-      audio.src = `${import.meta.env.VITE_API_URL}${song.url}`;
+      audio.src = `${API_URL}${song.url}`;
       audio.play();
       setPlayingId(song.id);
     }
