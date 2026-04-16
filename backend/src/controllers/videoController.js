@@ -32,18 +32,20 @@ const processCloudVideo = (inputUrl, outputName, commandAction, res) => {
             console.error("❌ FFmpeg Error:", err.message);
             res.status(500).json({ error: "Processing fail ho gayi: " + err.message });
         })
+        // 👇 Bas yahi ek 'end' block hona chahiye
         .on('end', async () => {
             try {
                 console.log(`✅ Local Edit Done: ${outputName}. Uploading back to Cloudinary...`);
                 
-                // Upload edited video back to Cloudinary
                 const result = await cloudinary.uploader.upload(outputPath, {
                     resource_type: "video",
                     folder: "visionai_edits"
                 });
 
-                // Delete local temp file
-                if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+                if (fs.existsSync(outputPath)) {
+                    fs.unlinkSync(outputPath);
+                    console.log("🗑️ Temp file cleared!");
+                }
 
                 res.json({ success: true, url: result.secure_url });
             } catch (uploadErr) {
