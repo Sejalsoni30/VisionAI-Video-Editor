@@ -137,7 +137,60 @@ exports.exportProject = async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 };
+// --- ⚙️ 1. ADD TEXT ACTION ---
+exports.addText = (req, res) => {
+    const { videoUrl, text } = req.body;
+    const outputName = `text_${Date.now()}.mp4`;
+    
+    // Render (Linux) par default fonts use karne ke liye drawtext filter
+    processCloudVideo(videoUrl, outputName, (f) => 
+        f.videoFilters(`drawtext=text='${text || 'VisionAI'}':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=(h-text_h)/2`), 
+    res);
+};
 
+// --- ⚙️ 2. MERGE VIDEOS ACTION ---
+exports.mergeVideos = (req, res) => {
+    const { videoUrls } = req.body; // Array of Cloudinary URLs
+    
+    if (!videoUrls || videoUrls.length < 2) {
+        return res.status(400).json({ error: "At least 2 files needed to merge!" });
+    }
+
+    const outputName = `merged_${Date.now()}.mp4`;
+    const outputPath = path.join(__dirname, '../../temp', outputName);
+
+    console.log("🔗 Merging videos started...");
+
+    let command = ffmpeg();
+    
+    // Har URL ko input ki tarah add karo
+    videoUrls.forEach(url => {
+        command = command.input(url);
+    });
+
+    command
+        .outputOptions([
+            '-preset ultrafast',
+            '-movflags +faststart'
+        ])
+        .on('error', (err) => {
+            console.error("❌ Merge Error:", err.message);
+            res.status(500).json({ error: "Merge fail: Clips compatibility issue." });
+        })
+        .on('end', async () => {
+            try {
+                const result = await cloudinary.uploader.upload(outputPath, {
+                    resource_type: "video",
+                    folder: "visionai_edits"
+                });
+                if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+                res.json({ success: true, url: result.secure_url });
+            } catch (err) {
+                res.status(500).json({ error: "Merge upload failed" });
+            }
+        })
+        .mergeToFile(outputPath, path.join(__dirname, '../../temp'));
+};
 exports.getMusicLibrary = (req, res) => {
     const musicDir = path.join(__dirname, '../../public/music');
     if (!fs.existsSync(musicDir)) return res.status(500).json({ error: "Music folder missing" });
