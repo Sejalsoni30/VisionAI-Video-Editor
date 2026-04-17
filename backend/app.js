@@ -13,11 +13,15 @@ const videoRoutes = require('./src/routes/videoRoutes');
 
 // 🔑 Firebase Admin Initialization
 try {
-    const serviceAccount = require('./firebase-key.json');
+    // 💡 Render ke liye Environment Variable check karega, local ke liye JSON file
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
+        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) 
+        : require('./firebase-key.json');
+
     if (!admin.apps.length) {
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            // ⭐️ Is URL ko dhyan se dekho, ye tumhare link se match hona chahiye
+            // ✅ URL ekdum sahi hai!
             databaseURL: "https://video-editor-app-843fa-default-rtdb.firebaseio.com/" 
         });
         console.log(`🔥 Firebase Realtime DB: Connected Successfully!`);
