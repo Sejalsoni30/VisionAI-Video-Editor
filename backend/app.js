@@ -15,8 +15,8 @@ const videoRoutes = require('./src/routes/videoRoutes');
 try {
     // 💡 Render ke liye Environment Variable check karega, local ke liye JSON file
     const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
-        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) 
-        : require('./firebase-key.json');
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n')) 
+    : require('./firebase-key.json');
 
     if (!admin.apps.length) {
         admin.initializeApp({
