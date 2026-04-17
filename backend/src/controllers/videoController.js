@@ -151,93 +151,37 @@ exports.exportProject = async (req, res) => {
     try {
         const { projectName, layers } = req.body;
         const db = admin.firestore();
-        const tempDir = path.join(__dirname, '../../temp');
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+        // 1. RTDB ko hata kar Firestore use karo (db humne top par import kiya hai)
+        console.log("🎬 Starting Firestore Export for:", projectName);
 
-        const videoLayer = layers.find(l => l.type === 'video');
-        const audioLayer = layers.find(l => l.type === 'audio' || (l.url && l.url.includes('/music/')));
-
-        if (!videoLayer) return res.status(400).json({ error: "No video layer found!" });
-
-        if (audioLayer) {
-            console.log("📥 Downloading files for merging...");
-            const videoPath = path.join(tempDir, `v_${Date.now()}.mp4`);
-            const audioPath = path.join(tempDir, `a_${Date.now()}.mp3`);
-            const outputPath = path.join(tempDir, `final_${Date.now()}.mp4`);
-
-            // Audio URL fix
-            const fullAudioUrl = audioLayer.url.startsWith('http') 
-                ? audioLayer.url 
-                : `${req.protocol}://${req.get('host')}${audioLayer.url}`;
-
-            // Helper function to download
-            const downloadFile = async (url, dest) => {
-                const response = await axios({ method: 'get', url, responseType: 'stream' });
-                const writer = fs.createWriteStream(dest);
-                response.data.pipe(writer);
-                return new Promise((resolve, reject) => {
-                    writer.on('finish', resolve);
-                    writer.on('error', reject);
-                });
-            };
-
-            // 1. Dono files download karo
-            await Promise.all([
-                downloadFile(videoLayer.url, videoPath),
-                downloadFile(fullAudioUrl, audioPath)
-            ]);
-
-            console.log("✅ Downloads complete. Starting FFmpeg...");
-
-            // 2. Local files par FFmpeg chalao (No SIGSEGV here!)
-            ffmpeg(videoPath)
-                .input(audioPath)
-                .outputOptions([
-                    '-map 0:v:0',
-                    '-map 1:a:0',
-                    '-shortest',
-                    '-c:v copy',
-                    '-c:a aac',
-                    '-threads 1',        // Render memory save karne ke liye
-                    '-preset ultrafast'
-                ])
-                .on('end', async () => {
-                    console.log("✅ Merge Success! Uploading...");
-                    const result = await cloudinary.uploader.upload(outputPath, {
-                        resource_type: "video",
-                        folder: "visionai_final_exports"
-                    });
-
-                    const docRef = await db.collection('projects').add({
-                        projectName: projectName || "My Masterpiece",
-                        finalVideoUrl: result.secure_url,
-                        createdAt: admin.firestore.FieldValue.serverTimestamp()
-                    });
-
-                    // Cleanup
-                    [videoPath, audioPath, outputPath].forEach(p => {
-                        if (fs.existsSync(p)) fs.unlinkSync(p);
-                    });
-
-                    res.json({ success: true, url: result.secure_url, dbId: docRef.id });
-                })
-                .on('error', (err) => {
-                    console.error("❌ FFmpeg Error:", err.message);
-                    res.status(500).json({ error: "FFmpeg crash: " + err.message });
-                })
-                .save(outputPath);
-
-        } else {
-            // No audio - Simple save
-            const docRef = await db.collection('projects').add({
-                projectName: projectName || "Untitled",
-                finalVideoUrl: videoLayer.url,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            res.json({ success: true, url: videoLayer.url, dbId: docRef.id });
+        let finalUrl = "";
+        if (layers && layers.length > 0) {
+            finalUrl = layers[0].url || ""; 
         }
+
+        // 2. 'projects' naam ki collection mein data add karo
+        // Firestore mein .add() karne se unique ID apne aap ban jati hai
+        const docRef = await db.collection('projects').add({
+            projectName: projectName || "Untitled Project",
+            layers: layers || [],
+            finalVideoUrl: finalUrl,
+            createdAt: admin.firestore.FieldValue.serverTimestamp() 
+        });
+
+        console.log("✅ Export Recorded in Firestore with ID:", docRef.id);
+
+        // 3. Frontend ko response bhej do
+        res.json({ 
+            success: true, 
+            message: "Project saved to Firestore!",
+            details: { 
+                dbId: docRef.id, // Unique ID jo Firestore dashboard par dikhegi
+                url: finalUrl 
+            } 
+        });
+
     } catch (error) {
-        console.error("❌ Export Error:", error);
+        console.error("❌ Firestore Export Error:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 };
