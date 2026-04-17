@@ -1,3 +1,4 @@
+const axios = require('axios');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
@@ -11,53 +12,69 @@ ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
 // --- ⚙️ Universal Cloud Processor (Optimized for Render) ---
 // Ye function ab direct Cloudinary URL lega aur edited video wapas Cloudinary par bhejega
-const processCloudVideo = (inputUrl, outputName, commandAction, res) => {
+const processCloudVideo = async (inputUrl, outputName, commandAction, res) => {
+    const tempInputPath = path.join(__dirname, '../../temp', `input-${Date.now()}.mp4`);
     const outputPath = path.join(__dirname, '../../temp', outputName);
-    
-    console.log("🎬 Cloud Processing Started for:", inputUrl);
 
-   let ffmpegCmd = ffmpeg(inputUrl)
-        .inputOptions([
-            '-protocol_whitelist', 'file,http,https,tcp,tls', // 👈 Ye rahi wo zaroori line
-            '-hwaccel', 'auto' // Optional: processing thodi fast karne ke liye
-        ]);
+    try {
+        console.log("📥 Downloading video from Cloudinary...");
+        
+        // 1. Pehle video download karo Render ke local storage mein
+        const response = await axios({
+            method: 'get',
+            url: inputUrl,
+            responseType: 'stream'
+        });
 
-    commandAction(ffmpegCmd)
-        .outputOptions([
-            '-preset ultrafast',    // CPU load kam karne ke liye
-            '-threads 1',          // All cores use karo
-            '-tune fastdecode',     
-            '-movflags +faststart', // Streaming optimized
-            '-crf 26'               // Quality/Size balance
-        ])
-        .output(outputPath)
-        .on('start', (cmd) => console.log("🚀 Turbo Command:", cmd))
-        .on('error', (err) => {
-            console.error("❌ FFmpeg Error:", err.message);
-            res.status(500).json({ error: "Processing fail ho gayi: " + err.message });
-        })
-        // 👇 Bas yahi ek 'end' block hona chahiye
-        .on('end', async () => {
-            try {
-                console.log(`✅ Local Edit Done: ${outputName}. Uploading back to Cloudinary...`);
-                
-                const result = await cloudinary.uploader.upload(outputPath, {
-                    resource_type: "video",
-                    folder: "visionai_edits"
-                });
+        const writer = fs.createWriteStream(tempInputPath);
+        response.data.pipe(writer);
 
-                if (fs.existsSync(outputPath)) {
-                    fs.unlinkSync(outputPath);
-                    console.log("🗑️ Temp file cleared!");
+        await new Promise((resolve, reject) => {
+            writer.on('finish', resolve);
+            writer.on('error', reject);
+        });
+
+        console.log("✅ Download complete. Now processing...");
+
+        // 2. Ab local file par FFmpeg chalao (Isse SIGSEGV nahi aayega)
+        let ffmpegCmd = ffmpeg(tempInputPath);
+
+        commandAction(ffmpegCmd)
+            .outputOptions([
+                '-preset ultrafast',
+                '-threads 1',
+                '-movflags +faststart'
+            ])
+            .output(outputPath)
+            .on('start', (cmd) => console.log("🚀 Executing local FFmpeg:", cmd))
+            .on('error', (err) => {
+                console.error("❌ FFmpeg Error:", err.message);
+                if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
+                res.status(500).json({ error: err.message });
+            })
+            .on('end', async () => {
+                try {
+                    console.log("✅ Edit successful. Uploading back to Cloudinary...");
+                    const result = await cloudinary.uploader.upload(outputPath, {
+                        resource_type: "video",
+                        folder: "visionai_edits"
+                    });
+
+                    // Cleanup: Dono files delete karo
+                    if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
+                    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+
+                    res.json({ success: true, url: result.secure_url });
+                } catch (uploadErr) {
+                    res.status(500).json({ error: "Upload failed" });
                 }
+            })
+            .run();
 
-                res.json({ success: true, url: result.secure_url });
-            } catch (uploadErr) {
-                console.error("❌ Final Upload Error:", uploadErr);
-                res.status(500).json({ error: "Editing successful but cloud saving failed" });
-            }
-        })
-        .run();
+    } catch (err) {
+        console.error("❌ Download Error:", err.message);
+        res.status(500).json({ error: "Video download fail ho gayi." });
+    }
 };
 
 exports.splitVideo = (req, res) => {
