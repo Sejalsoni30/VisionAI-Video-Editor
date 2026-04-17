@@ -150,42 +150,44 @@ exports.applyFilter = (req, res) => {
 exports.exportProject = async (req, res) => {
     try {
         const { projectName, layers } = req.body;
-        const db = admin.firestore();
+        
+        // 1. Firestore ki jagah Realtime Database initialize karo
+        const db = admin.database(); 
 
-        console.log("🎬 Starting Export for:", projectName);
-
-        // 1. Agar tum layers mein se kisi final video ko upload karna chahti ho:
-        // (Abhi hum sirf database entry ke saath success bhej rahe hain, 
-        // par agar final video path hai toh use yahan upload karenge)
+        console.log("🎬 Starting Realtime Export for:", projectName);
 
         let finalUrl = "";
         if (layers && layers.length > 0) {
-            // Hum maan ke chal rahe hain ki layers[0] tumhari edited video hai
-            finalUrl = layers[0].url; 
+            // Edited video ka Cloudinary URL uthao
+            finalUrl = layers[0].url || ""; 
         }
 
-        // 2. Database (Firestore) mein entry karo
-        const docRef = await db.collection('projects').add({
+        // 2. 'projects' naam ke folder mein data push karo
+        // .push() karne se ek unique ID apne aap ban jayegi
+        const projectRef = db.ref('projects').push();
+        
+        await projectRef.set({
             projectName: projectName || "Untitled Project",
             layers: layers || [],
-            finalVideoUrl: finalUrl, // Cloudinary URL yahan save hoga
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+            finalVideoUrl: finalUrl,
+            // RTDB mein Date save karne ka asaan tarika
+            createdAt: new Date().toISOString() 
         });
 
-        console.log("✅ Export Recorded in DB with ID:", docRef.id);
+        console.log("✅ Export Recorded in RTDB with Key:", projectRef.key);
 
-        // 3. Frontend ko success response bhej do
+        // 3. Frontend ko response bhej do
         res.json({ 
             success: true, 
-            message: "Project Exported Successfully!",
+            message: "Project saved to Realtime Database!",
             details: { 
-                dbId: docRef.id,
+                dbId: projectRef.key, // Unique Key jo dashboard par dikhegi
                 url: finalUrl 
             } 
         });
 
     } catch (error) {
-        console.error("❌ Export Error:", error);
+        console.error("❌ RTDB Export Error:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 };

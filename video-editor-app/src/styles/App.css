@@ -1,5 +1,26 @@
 @import "tailwindcss";
 
+/* ✨ NAYA: Editor Layout Fix (Terminal khulne par hide na ho) */
+.editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden; /* Scrollbars ko control karne ke liye */
+}
+
+.main-workspace {
+  display: flex;
+  flex: 1; /* Ye terminal khulne par apne aap ko squeeze karega */
+  min-height: 0; 
+}
+
+/* Properties panel ke liye extra safety */
+.properties-panel {
+  overflow-y: auto;
+  min-width: 250px; /* Isse kam par hide na ho */
+  height: 100%;
+}
+
 .app-transition {
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -12,14 +33,25 @@
   box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
 }
 
+/* 🛠 UPDATED: Truncate lines fix */
 .truncate-2-lines {
   display: -webkit-box;
-  /* -webkit-line-clamp: 2; */
+  -webkit-line-clamp: 2; /* Ise uncomment kar diya taaki kaam kare */
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .theme-transition {
   transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
               color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ✨ NAYA: Custom Scrollbar (Properties panel ke liye) */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 10px;
 }

@@ -22,15 +22,21 @@ const Navbar = () => {
 
   // 🔥 EXPORT FUNCTION: Dynamic Name ke saath
   const handleExport = async () => {
+    // Basic validation: Name hona zaroori hai
+    if (!projectName || projectName.trim() === "") {
+      alert("Please enter a project name first!");
+      return;
+    }
+
     try {
-      console.log("📤 Exporting to Firebase:", { projectName, layersCount: layers.length });
+      console.log("📤 Exporting to Firebase (RTDB):", { projectName, layersCount: layers.length });
 
       const response = await fetch(`${API_URL}/video/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectName: projectName,
-          layers: layers, // Redux state se aa rahi layers
+          layers: layers,
           exportedAt: new Date().toISOString()
         })
       });
@@ -38,15 +44,16 @@ const Navbar = () => {
       const data = await response.json();
 
       if (data.success) {
-        // ✨ UPDATED: Ab ye Cloud saving confirm karega aur Firebase ID dikhayega
-        alert(`✅ Project "${projectName}" saved to Firebase Cloud!\nID: ${data.details.dbId}`);
-        console.log("🔥 Firebase Doc ID:", data.details.dbId);
+        // ✨ Success: Ab ye RTDB ki unique Key (ID) dikhayega
+        alert(`✅ Project "${projectName}" saved to Realtime Database!\nID: ${data.details.dbId}`);
+        console.log("🔥 Realtime DB Key:", data.details.dbId);
       } else {
-        alert("❌ Export Failed: " + (data.message || "Unknown error"));
+        // Backend se aane wala error message dikhao
+        alert("❌ Export Failed: " + (data.error || "Unknown error"));
       }
     } catch (error) {
       console.error("Export failed:", error);
-      alert("❌ Server connection lost! Check if backend is running.");
+      alert("❌ Server connection lost! Make sure backend is live.");
     }
   };
 

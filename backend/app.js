@@ -16,9 +16,11 @@ try {
     const serviceAccount = require('./firebase-key.json');
     if (!admin.apps.length) {
         admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
+            credential: admin.credential.cert(serviceAccount),
+            // ⭐️ Is URL ko dhyan se dekho, ye tumhare link se match hona chahiye
+            databaseURL: "https://video-editor-app-843fa-default-rtdb.firebaseio.com/" 
         });
-        console.log(`🔥 Firebase Cloud: Connected Successfully!`);
+        console.log(`🔥 Firebase Realtime DB: Connected Successfully!`);
     }
 } catch (error) {
     console.error("❌ Firebase Init Error:", error.message);
