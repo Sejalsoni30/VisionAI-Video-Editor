@@ -146,9 +146,6 @@ exports.applyFilter = (req, res) => {
 
 // --- 🛠️ 3. PROJECT & MUSIC ---
 
-const cloudinary = require('../config/cloudinary'); // Check karna tumhara path sahi ho
-const fs = require('fs');
-const path = require('path');
 
 exports.exportProject = async (req, res) => {
     try {
