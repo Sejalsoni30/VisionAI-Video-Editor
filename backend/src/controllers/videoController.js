@@ -146,17 +146,49 @@ exports.applyFilter = (req, res) => {
 
 // --- 🛠️ 3. PROJECT & MUSIC ---
 
+const cloudinary = require('../config/cloudinary'); // Check karna tumhara path sahi ho
+const fs = require('fs');
+const path = require('path');
+
 exports.exportProject = async (req, res) => {
     try {
         const { projectName, layers } = req.body;
         const db = admin.firestore();
+
+        console.log("🎬 Starting Export for:", projectName);
+
+        // 1. Agar tum layers mein se kisi final video ko upload karna chahti ho:
+        // (Abhi hum sirf database entry ke saath success bhej rahe hain, 
+        // par agar final video path hai toh use yahan upload karenge)
+
+        let finalUrl = "";
+        if (layers && layers.length > 0) {
+            // Hum maan ke chal rahe hain ki layers[0] tumhari edited video hai
+            finalUrl = layers[0].url; 
+        }
+
+        // 2. Database (Firestore) mein entry karo
         const docRef = await db.collection('projects').add({
             projectName: projectName || "Untitled Project",
             layers: layers || [],
+            finalVideoUrl: finalUrl, // Cloudinary URL yahan save hoga
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         });
-        res.json({ success: true, details: { dbId: docRef.id } });
+
+        console.log("✅ Export Recorded in DB with ID:", docRef.id);
+
+        // 3. Frontend ko success response bhej do
+        res.json({ 
+            success: true, 
+            message: "Project Exported Successfully!",
+            details: { 
+                dbId: docRef.id,
+                url: finalUrl 
+            } 
+        });
+
     } catch (error) {
+        console.error("❌ Export Error:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 };
