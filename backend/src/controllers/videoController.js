@@ -1,3 +1,4 @@
+const { db } = require('../../app');
 const axios = require('axios');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
@@ -151,10 +152,8 @@ exports.exportProject = async (req, res) => {
     try {
         const { projectName, layers } = req.body;
         
-        // 1. Firestore ki jagah Realtime Database initialize karo
-        const db = admin.database(); 
-
-        console.log("🎬 Starting Realtime Export for:", projectName);
+        // 1. RTDB ko hata kar Firestore use karo (db humne top par import kiya hai)
+        console.log("🎬 Starting Firestore Export for:", projectName);
 
         let finalUrl = "";
         if (layers && layers.length > 0) {
@@ -162,36 +161,33 @@ exports.exportProject = async (req, res) => {
             finalUrl = layers[0].url || ""; 
         }
 
-        // 2. 'projects' naam ke folder mein data push karo
-        // .push() karne se ek unique ID apne aap ban jayegi
-        const projectRef = db.ref('projects').push();
-        
-        await projectRef.set({
+        // 2. 'projects' naam ki collection mein data add karo
+        // Firestore mein .add() karne se unique ID apne aap ban jati hai
+        const docRef = await db.collection('projects').add({
             projectName: projectName || "Untitled Project",
             layers: layers || [],
             finalVideoUrl: finalUrl,
-            // RTDB mein Date save karne ka asaan tarika
-            createdAt: new Date().toISOString() 
+            // Firestore ka native way date save karne ka
+            createdAt: admin.firestore.FieldValue.serverTimestamp() 
         });
 
-        console.log("✅ Export Recorded in RTDB with Key:", projectRef.key);
+        console.log("✅ Export Recorded in Firestore with ID:", docRef.id);
 
         // 3. Frontend ko response bhej do
         res.json({ 
             success: true, 
-            message: "Project saved to Realtime Database!",
+            message: "Project saved to Firestore!",
             details: { 
-                dbId: projectRef.key, // Unique Key jo dashboard par dikhegi
+                dbId: docRef.id, // Unique ID jo Firestore dashboard par dikhegi
                 url: finalUrl 
             } 
         });
 
     } catch (error) {
-        console.error("❌ RTDB Export Error:", error);
+        console.error("❌ Firestore Export Error:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 };
-// --- ⚙️ 1. ADD TEXT ACTION ---
 exports.addText = (req, res) => {
     const { videoUrl, text } = req.body;
     const outputName = `text_${Date.now()}.mp4`;

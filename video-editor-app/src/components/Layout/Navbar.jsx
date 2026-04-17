@@ -22,14 +22,15 @@ const Navbar = () => {
 
   // 🔥 EXPORT FUNCTION: Dynamic Name ke saath
   const handleExport = async () => {
-    // Basic validation: Name hona zaroori hai
+    // 1. Validation check
     if (!projectName || projectName.trim() === "") {
       alert("Please enter a project name first!");
       return;
     }
 
     try {
-      console.log("📤 Exporting to Firebase (RTDB):", { projectName, layersCount: layers.length });
+      // 🚩 Console log update (Sirf hamari pehchan ke liye)
+      console.log("📤 Exporting to Firestore:", { projectName, layersCount: layers.length });
 
       const response = await fetch(`${API_URL}/video/export`, {
         method: 'POST',
@@ -44,11 +45,10 @@ const Navbar = () => {
       const data = await response.json();
 
       if (data.success) {
-        // ✨ Success: Ab ye RTDB ki unique Key (ID) dikhayega
-        alert(`✅ Project "${projectName}" saved to Realtime Database!\nID: ${data.details.dbId}`);
-        console.log("🔥 Realtime DB Key:", data.details.dbId);
+        // ✨ Success Alert: Ab ye Firestore ki Document ID dikhayega
+        alert(`✅ Project "${projectName}" saved to Cloud Firestore!\nDocument ID: ${data.details.dbId}`);
+        console.log("🔥 Firestore Doc ID:", data.details.dbId);
       } else {
-        // Backend se aane wala error message dikhao
         alert("❌ Export Failed: " + (data.error || "Unknown error"));
       }
     } catch (error) {
