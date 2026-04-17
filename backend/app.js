@@ -13,21 +13,19 @@ const videoRoutes = require('./src/routes/videoRoutes');
 
 // 🔑 Firebase Admin Initialization
 try {
-    // 💡 Render ke liye Environment Variable check karega, local ke liye JSON file
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n')) 
+  const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n'))
     : require('./firebase-key.json');
 
-    if (!admin.apps.length) {
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            // ✅ URL ekdum sahi hai!
-            databaseURL: "https://video-editor-app-843fa-default-rtdb.firebaseio.com/" 
-        });
-        console.log(`🔥 Firebase Realtime DB: Connected Successfully!`);
-    }
+  if (admin.apps.length === 0) { // Check karo ki koi app pehle se init toh nahi
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccountKey),
+      databaseURL: "https://video-editor-app-843fa-default-rtdb.firebaseio.com/"
+    });
+    console.log(`🔥 Firebase Realtime DB: Connected Successfully!`);
+  }
 } catch (error) {
-    console.error("❌ Firebase Init Error:", error.message);
+  console.error("❌ Firebase Init Error:", error.message);
 }
 
 const app = express();
@@ -58,7 +56,7 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 // 📁 Ensure Folders: Local processing ke liye
 const dirs = ['uploads', 'temp', 'public/music'].map(d => path.join(__dirname, d));
 dirs.forEach(dir => {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
 // Manual Header fix jo pehle work kar raha tha
@@ -77,9 +75,9 @@ app.use('/music', express.static(path.join(__dirname, 'public/music')));
 // 📢 Routes Integration
 app.use('/video', videoRoutes);
 
-app.get('/', (req, res) => res.json({ 
-    message: "VisionAI: Cloud Edition is Running! 🚀",
-    database: "Firebase Firestore Connected 🔥" 
+app.get('/', (req, res) => res.json({
+  message: "VisionAI: Cloud Edition is Running! 🚀",
+  database: "Firebase Firestore Connected 🔥"
 }));
 
 
@@ -88,15 +86,15 @@ const PORT = process.env.PORT || 5000;
 
 // ✅ Server Timeout Fix & Deployment Friendly Logs
 const server = app.listen(PORT, () => {
-    // Agar hum Render par hain, toh localhost nahi dikhayenge
-    const mode = process.env.NODE_ENV === 'production' ? 'Production' : 'Development';
-    
-    console.log(`🚀 Server running in ${mode} mode on port: ${PORT}`);
-    console.log(`📂 Storage folders and API routes are ready!`);
-    
-    if (process.env.NODE_ENV !== 'production') {
-        console.log(`🔗 Local Link: http://localhost:${PORT}`);
-    }
+  // Agar hum Render par hain, toh localhost nahi dikhayenge
+  const mode = process.env.NODE_ENV === 'production' ? 'Production' : 'Development';
+
+  console.log(`🚀 Server running in ${mode} mode on port: ${PORT}`);
+  console.log(`📂 Storage folders and API routes are ready!`);
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`🔗 Local Link: http://localhost:${PORT}`);
+  }
 });
 
 // 10 minutes timeout
