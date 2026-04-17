@@ -1,4 +1,3 @@
-const { db } = require('../../app');
 const axios = require('axios');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
@@ -151,13 +150,12 @@ exports.applyFilter = (req, res) => {
 exports.exportProject = async (req, res) => {
     try {
         const { projectName, layers } = req.body;
-        
+        const db = admin.firestore();
         // 1. RTDB ko hata kar Firestore use karo (db humne top par import kiya hai)
         console.log("🎬 Starting Firestore Export for:", projectName);
 
         let finalUrl = "";
         if (layers && layers.length > 0) {
-            // Edited video ka Cloudinary URL uthao
             finalUrl = layers[0].url || ""; 
         }
 
@@ -167,7 +165,6 @@ exports.exportProject = async (req, res) => {
             projectName: projectName || "Untitled Project",
             layers: layers || [],
             finalVideoUrl: finalUrl,
-            // Firestore ka native way date save karne ka
             createdAt: admin.firestore.FieldValue.serverTimestamp() 
         });
 
