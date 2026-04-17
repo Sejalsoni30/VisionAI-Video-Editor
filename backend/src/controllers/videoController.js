@@ -151,43 +151,58 @@ exports.exportProject = async (req, res) => {
     try {
         const { projectName, layers } = req.body;
         const db = admin.firestore();
-
-        console.log("🎬 Processing Final Export (Merging Layers)...");
-
-        // Temp folder ensure karo
         const tempDir = path.join(__dirname, '../../temp');
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
         const videoLayer = layers.find(l => l.type === 'video');
-        // Music layer dhoondo (Type audio ho ya URL mein music folder ho)
         const audioLayer = layers.find(l => l.type === 'audio' || (l.url && l.url.includes('/music/')));
 
-        if (!videoLayer) return res.status(400).json({ error: "No video layer found to export!" });
+        if (!videoLayer) return res.status(400).json({ error: "No video layer found!" });
 
-        // 🚀 CASE 1: Video + Music Merge
         if (audioLayer) {
-            console.log("🎵 Merging Audio:", audioLayer.url);
-            const outputName = `final_${Date.now()}.mp4`;
-            const outputPath = path.join(tempDir, outputName);
+            console.log("📥 Downloading files for merging...");
+            const videoPath = path.join(tempDir, `v_${Date.now()}.mp4`);
+            const audioPath = path.join(tempDir, `a_${Date.now()}.mp3`);
+            const outputPath = path.join(tempDir, `final_${Date.now()}.mp4`);
 
-            // Audio URL agar local path hai (/music/...) toh use full URL banao
+            // Audio URL fix
             const fullAudioUrl = audioLayer.url.startsWith('http') 
                 ? audioLayer.url 
                 : `${req.protocol}://${req.get('host')}${audioLayer.url}`;
 
-            ffmpeg(videoLayer.url)
-                .input(fullAudioUrl)
+            // Helper function to download
+            const downloadFile = async (url, dest) => {
+                const response = await axios({ method: 'get', url, responseType: 'stream' });
+                const writer = fs.createWriteStream(dest);
+                response.data.pipe(writer);
+                return new Promise((resolve, reject) => {
+                    writer.on('finish', resolve);
+                    writer.on('error', reject);
+                });
+            };
+
+            // 1. Dono files download karo
+            await Promise.all([
+                downloadFile(videoLayer.url, videoPath),
+                downloadFile(fullAudioUrl, audioPath)
+            ]);
+
+            console.log("✅ Downloads complete. Starting FFmpeg...");
+
+            // 2. Local files par FFmpeg chalao (No SIGSEGV here!)
+            ffmpeg(videoPath)
+                .input(audioPath)
                 .outputOptions([
-                    '-map 0:v:0',    // Video from 1st input
-                    '-map 1:a:0',    // Audio from 2nd input
-                    '-shortest',     // Match shortest duration
-                    '-c:v copy',     // Don't re-encode video (Fast!)
-                    '-c:a aac',      // Encode audio to AAC
-                    '-strict experimental'
+                    '-map 0:v:0',
+                    '-map 1:a:0',
+                    '-shortest',
+                    '-c:v copy',
+                    '-c:a aac',
+                    '-threads 1',        // Render memory save karne ke liye
+                    '-preset ultrafast'
                 ])
-                .on('start', (cmd) => console.log("🚀 FFmpeg Command:", cmd))
                 .on('end', async () => {
-                    console.log("✅ Merge Done! Uploading...");
+                    console.log("✅ Merge Success! Uploading...");
                     const result = await cloudinary.uploader.upload(outputPath, {
                         resource_type: "video",
                         folder: "visionai_final_exports"
@@ -196,22 +211,24 @@ exports.exportProject = async (req, res) => {
                     const docRef = await db.collection('projects').add({
                         projectName: projectName || "My Masterpiece",
                         finalVideoUrl: result.secure_url,
-                        status: "merged",
                         createdAt: admin.firestore.FieldValue.serverTimestamp()
                     });
 
-                    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+                    // Cleanup
+                    [videoPath, audioPath, outputPath].forEach(p => {
+                        if (fs.existsSync(p)) fs.unlinkSync(p);
+                    });
+
                     res.json({ success: true, url: result.secure_url, dbId: docRef.id });
                 })
                 .on('error', (err) => {
-                    console.error("❌ FFmpeg Merge Error:", err.message);
-                    res.status(500).json({ error: "Merging failed: " + err.message });
+                    console.error("❌ FFmpeg Error:", err.message);
+                    res.status(500).json({ error: "FFmpeg crash: " + err.message });
                 })
                 .save(outputPath);
 
         } else {
-            // 🚀 CASE 2: No Music (Direct Save)
-            console.log("📹 No audio found, saving video only.");
+            // No audio - Simple save
             const docRef = await db.collection('projects').add({
                 projectName: projectName || "Untitled",
                 finalVideoUrl: videoLayer.url,
@@ -219,7 +236,6 @@ exports.exportProject = async (req, res) => {
             });
             res.json({ success: true, url: videoLayer.url, dbId: docRef.id });
         }
-
     } catch (error) {
         console.error("❌ Export Error:", error);
         res.status(500).json({ success: false, error: error.message });
