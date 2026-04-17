@@ -13,39 +13,31 @@ const videoRoutes = require('./src/routes/videoRoutes');
 
 // 🔑 Firebase Admin Initialization
 try {
-  let rawKey = process.env.FIREBASE_SERVICE_ACCOUNT;
+    const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT;
+    let serviceAccount; // Variable ko sirf yahan declare karo
 
-  if (rawKey) {
-    // Step A: Invisible characters aur bad control characters ko hatana
-    const cleanKey = rawKey.replace(/[\u0000-\u001F\u007F-\u009F]/g, "").trim();
-
-    // Step B: JSON parse karna
-    const serviceAccount = JSON.parse(cleanKey);
-
-    // Step C: Private key ke \n ko theek karna (v. important for JWT)
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n'))
-      : require('./firebase-key.json');
+    if (rawKey) {
+        // Render ke liye logic
+        const cleanKey = rawKey.replace(/[\u0000-\u001F\u007F-\u009F]/g, "").trim(); 
+        serviceAccount = JSON.parse(cleanKey); // Yahan 'const' mat lagao
+        
+        if (serviceAccount.private_key) {
+            serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+        }
+    } else {
+        // Local ke liye logic
+        serviceAccount = require('./firebase-key.json'); // Yahan bhi 'const' hata do
+    }
 
     if (admin.apps.length === 0) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        databaseURL: "https://video-editor-app-843fa-default-rtdb.firebaseio.com/"
-      });
-      console.log(`🔥 Firebase Realtime DB: Connected Successfully!`);
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            databaseURL: "https://video-editor-app-843fa-default-rtdb.firebaseio.com/"
+        });
+        console.log(`🔥 Firebase Realtime DB: Connected Successfully!`);
     }
-  } else {
-    // Local fallback
-    const serviceAccount = require('./firebase-key.json');
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        databaseURL: "https://video-editor-app-843fa-default-rtdb.firebaseio.com/"
-      });
-    }
-  }
 } catch (error) {
-  console.error("❌ Firebase Init Error:", error.message);
+    console.error("❌ Firebase Init Error:", error.message);
 }
 
 const app = express();
