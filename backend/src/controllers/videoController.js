@@ -16,12 +16,16 @@ const processCloudVideo = (inputUrl, outputName, commandAction, res) => {
     
     console.log("🎬 Cloud Processing Started for:", inputUrl);
 
-    let ffmpegCmd = ffmpeg(inputUrl);
+   let ffmpegCmd = ffmpeg(inputUrl)
+        .inputOptions([
+            '-protocol_whitelist', 'file,http,https,tcp,tls', // 👈 Ye rahi wo zaroori line
+            '-hwaccel', 'auto' // Optional: processing thodi fast karne ke liye
+        ]);
 
     commandAction(ffmpegCmd)
         .outputOptions([
             '-preset ultrafast',    // CPU load kam karne ke liye
-            '-threads 0',           // All cores use karo
+            '-threads 1',          // All cores use karo
             '-tune fastdecode',     
             '-movflags +faststart', // Streaming optimized
             '-crf 26'               // Quality/Size balance

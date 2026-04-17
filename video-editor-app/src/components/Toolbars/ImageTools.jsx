@@ -3,6 +3,7 @@ import { Palette, Maximize2, Layers, Wand2, Crop, Loader2, Plus, Sparkles, MoveD
 import { useDispatch, useSelector } from 'react-redux';
 import { updateAsset } from "../../store/projectSlice";
 import IconButton from '../Common/IconButton';
+import { API_URL } from '../../config'; // 👈 Check karo ye import sahi hai na?
 
 const ImageTools = () => {
   const dispatch = useDispatch();
@@ -16,24 +17,23 @@ const ImageTools = () => {
 
   const handleAction = async (actionType, params = {}) => {
     const activeAsset = getActiveAsset();
-    if (!activeAsset) return; // Silent return if nothing selected
+    if (!activeAsset) return;
 
     setIsProcessing(true);
 
-    // 🔥 DYNAMIC FILE LOGIC: Always targets the actual file name
-    let currentFile = activeAsset.name; 
-    if (activeAsset.url && activeAsset.url.includes('http://localhost:5000')) {
-        currentFile = activeAsset.url.split('/').pop();
-    }
+    // 🔥 FIX: Localhost logic hata kar pura URL ya name bhej rahe hain
+    // Backend humara ab pura URL handle kar sakta hai
+    const currentUrl = activeAsset.url || activeAsset.name;
 
     try {
-      console.log(`🚀 Executing ${actionType} on: ${currentFile}`);
+      console.log(`🚀 Executing ${actionType} on:`, currentUrl);
 
-      const response = await fetch(`http://localhost:5000/video/${actionType}`, {
+      // 🌐 FIX: API_URL variable use kar rahe hain
+      const response = await fetch(`${API_URL}/video/${actionType}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoUrl: currentFile,
+          videoUrl: currentUrl, // 👈 Pura Cloudinary link bhejo
           ...params
         }),
       });
@@ -45,11 +45,13 @@ const ImageTools = () => {
           id: activeAsset.id,
           updates: { url: data.url }
         }));
+        console.log("✅ Success:", data.url);
       } else {
-        console.error("Backend Error:", data.error);
+        throw new Error(data.error || "Server error");
       }
     } catch (err) {
-      console.error("❌ Network Error:", err);
+      console.error("❌ Action Error:", err.message);
+      alert(`Operation fail ho gayi: ${err.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -57,7 +59,7 @@ const ImageTools = () => {
 
   return (
     <div className="flex items-center gap-3 p-1.5 bg-zinc-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl relative transition-all duration-500">
-      
+
       {/* 🌀 Cinematic Loader */}
       {isProcessing && (
         <div className="absolute inset-0 bg-blue-600/10 backdrop-blur-[2px] rounded-2xl flex items-center justify-center z-20 overflow-hidden">
@@ -68,15 +70,15 @@ const ImageTools = () => {
 
       {/* --- Section 1: Geometry --- */}
       <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl">
-        <IconButton 
-          icon={Crop} 
-          tooltip="Smart Crop" 
+        <IconButton
+          icon={Crop}
+          tooltip="Smart Crop"
           onClick={() => handleAction('resize', { size: '800x600' })}
           className="hover:bg-amber-500/20 hover:text-amber-500 transition-colors"
         />
-        <IconButton 
-          icon={Layers} 
-          tooltip="Rotate 90°" 
+        <IconButton
+          icon={Layers}
+          tooltip="Rotate 90°"
           onClick={() => handleAction('rotate', { angle: 90 })}
           className="hover:bg-indigo-500/20 hover:text-indigo-500 transition-colors"
         />
@@ -84,15 +86,15 @@ const ImageTools = () => {
 
       {/* --- Section 2: AI Filters --- */}
       <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl">
-        <IconButton 
-          icon={Wand2} 
-          tooltip="Grayscale B&W" 
+        <IconButton
+          icon={Wand2}
+          tooltip="Grayscale B&W"
           onClick={() => handleAction('filter', { filterType: 'grayscale' })}
           className="hover:bg-blue-500/20 hover:text-blue-500"
         />
-        <IconButton 
-          icon={Sparkles} 
-          tooltip="Vintage Aesthetic" 
+        <IconButton
+          icon={Sparkles}
+          tooltip="Vintage Aesthetic"
           onClick={() => handleAction('filter', { filterType: 'vintage' })}
           className="hover:bg-purple-500/20 hover:text-purple-500"
         />
@@ -100,21 +102,21 @@ const ImageTools = () => {
 
       {/* --- Section 3: Smart Actions --- */}
       <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl">
-        <IconButton 
-          icon={Plus} 
-          tooltip="Merge Timeline" 
+        <IconButton
+          icon={Plus}
+          tooltip="Merge Timeline"
           onClick={() => {
             const videoNames = layers.map(l => {
               const asset = assets.find(a => a.id === l.assetId);
-              return asset?.url?.includes('http') ? asset.url.split('/').pop() : asset?.name;
+              return asset?.url;
             }).filter(Boolean);
-            if(videoNames.length >= 2) handleAction('merge', { videoUrls: videoNames });
+            if (videoNames.length >= 2) handleAction('merge', { videoUrls: videoNames });
           }}
           className="text-emerald-500 hover:bg-emerald-500/20"
         />
-        <IconButton 
-          icon={MoveDiagonal} 
-          tooltip="Fit to 1080p" 
+        <IconButton
+          icon={MoveDiagonal}
+          tooltip="Fit to 1080p"
           onClick={() => handleAction('resize', { size: '1920x1080' })}
           className="hover:bg-rose-500/20 hover:text-rose-500"
         />
