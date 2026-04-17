@@ -13,16 +13,27 @@ const videoRoutes = require('./src/routes/videoRoutes');
 
 // 🔑 Firebase Admin Initialization
 try {
-  const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, '\n'))
-    : require('./firebase-key.json');
+  const rawKey = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-  if (admin.apps.length === 0) { // Check karo ki koi app pehle se init toh nahi
+  if (rawKey) {
+    // Yeh line "Bad control character" errors ko saaf kar deti hai
+    const cleanKey = rawKey.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+    const serviceAccount = JSON.parse(cleanKey.replace(/\\n/g, '\n'));
+
+    if (admin.apps.length === 0) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        databaseURL: "https://video-editor-app-843fa-default-rtdb.firebaseio.com/"
+      });
+      console.log(`🔥 Firebase Realtime DB: Connected Successfully!`);
+    }
+  } else {
+    // Local testing ke liye
+    const serviceAccount = require('./firebase-key.json');
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccountKey),
+      credential: admin.credential.cert(serviceAccount),
       databaseURL: "https://video-editor-app-843fa-default-rtdb.firebaseio.com/"
     });
-    console.log(`🔥 Firebase Realtime DB: Connected Successfully!`);
   }
 } catch (error) {
   console.error("❌ Firebase Init Error:", error.message);
