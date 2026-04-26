@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
-import { addLayer } from '../../store/projectSlice'; // Path check kar lena apne hisab se
-import { Play, Pause, Plus, Music } from 'lucide-react';
-import {API_URL} from '../../config';
+import { useDispatch, useSelector } from 'react-redux';
+import { addLayer } from '../../store/projectSlice';
+import { Play, Pause, Plus, Music, Square } from 'lucide-react';
+import { API_URL } from '../../config';
 const MusicLibrary = () => {
   const [songs, setSongs] = useState([]);
   const [playingId, setPlayingId] = useState(null);
   const [audio] = useState(new Audio());
   const dispatch = useDispatch();
+  const { layers, selectedLayerId } = useSelector((state) => state.project);
 
   useEffect(() => {
     // 🌐 Backend se data fetch karna
-    fetch(`${API_URL}/video/music-library`)
+    fetch(`${API_URL}/api/video/music-library`)
       .then(res => res.json())
       .then(data => setSongs(data))
       .catch(err => console.error("Error fetching music:", err));
@@ -29,16 +30,29 @@ const MusicLibrary = () => {
     }
   };
 
+  const selectedLayer = layers.find(l => l.id === selectedLayerId);
+  const targetStartTime = selectedLayer?.startTime ?? 0;
+  const targetDuration = selectedLayer?.duration || 30;
+
   const handleAddMusic = (song) => {
+    // Add music to screen video while playing
+    const audioElement = document.querySelector('#background-audio');
+    if (audioElement) {
+      audioElement.src = `${API_URL}${song.url}`;
+      audioElement.play().catch(err => console.log('Audio play failed:', err));
+    }
+    
+    // Also add to timeline for editing
     dispatch(addLayer({
       id: crypto.randomUUID(),
       assetId: song.id,
-      name: song.name,
-      // ✅ Yahan bhi pura URL bhejo
-      url: `${import.meta.env.VITE_API_URL}${song.url}`,
+      name: selectedLayer ? `${song.name} (for ${selectedLayer.name || selectedLayer.type})` : song.name,
+      url: `${API_URL}${song.url}`,
       type: 'audio', 
-      startTime: 0,
-      duration: 30
+      trackId: 'track-3',
+      startTime: targetStartTime,
+      duration: targetDuration,
+      source: 'music-library'
     }));
   };
 
@@ -53,15 +67,30 @@ const MusicLibrary = () => {
         {songs.map((song) => (
           <div key={song.id} className="group flex items-center justify-between p-3 bg-zinc-900/50 hover:bg-zinc-800 rounded-lg transition-colors">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => togglePlay(song)}
-                className="w-8 h-8 flex items-center justify-center bg-zinc-700 rounded-full text-white hover:bg-blue-600"
-              >
-                {playingId === song.id ? <Pause size={14} /> : <Play size={14} />}
-              </button>
-              <div>
-                <p className="text-sm text-zinc-200 truncate w-32 font-medium">{song.name}</p>
-                <p className="text-[10px] text-zinc-500">{song.duration}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => togglePlay(song)}
+                  className="w-8 h-8 flex items-center justify-center bg-zinc-700 rounded-full text-white hover:bg-blue-600"
+                >
+                  {playingId === song.id ? <Pause size={14} /> : <Play size={14} />}
+                </button>
+                {playingId === song.id && (
+                  <button
+                    onClick={() => {
+                      audio.pause();
+                      audio.currentTime = 0;
+                      setPlayingId(null);
+                    }}
+                    className="w-8 h-8 flex items-center justify-center bg-zinc-700 rounded-full text-white hover:bg-red-500"
+                    title="Stop"
+                  >
+                    <Square size={12} />
+                  </button>
+                )}
+                <div>
+                  <p className="text-sm text-zinc-200 truncate w-32 font-medium">{song.name}</p>
+                  <p className="text-[10px] text-zinc-500">{song.duration}</p>
+                </div>
               </div>
             </div>
             <button

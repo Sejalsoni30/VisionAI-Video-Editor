@@ -77,9 +77,7 @@ const Dashboard = () => {
 
           <div className="flex items-center gap-6 border-l border-white/10 pl-8">
             <button onClick={() => handleAction('/login')} className="text-xs font-black uppercase tracking-widest text-zinc-400 hover:text-white transition-all">Sign In</button>
-            <button onClick={() => handleAction('/register')} className="bg-white text-black px-7 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all active:scale-95 shadow-xl">
-              Get Started
-            </button>
+           
           </div>
         </div>
       </nav>
@@ -107,7 +105,7 @@ const Dashboard = () => {
 
             <div className="flex flex-wrap gap-6">
               <button
-                onClick={() => handleAction('/register')}
+                onClick={() => handleAction('/login')}
                 className="group bg-blue-600 px-12 py-6 rounded-[2rem] font-black text-base flex items-center gap-4 hover:bg-blue-500 transition-all shadow-[0_20px_60px_rgba(37,99,235,0.3)] active:scale-95"
               >
                 Get Started <ArrowRight size={22} className="group-hover:translate-x-2 transition-transform" />
@@ -143,9 +141,9 @@ const Dashboard = () => {
               Authorized access required to deploy cinematic neural nodes.
             </p>
 
-            {/* Action Button - Ab ye Register Page par bhejega */}
+            {/* Action Button - Ab ye login Page par bhejega */}
             <button
-              onClick={() => handleAction('/register')}
+              onClick={() => handleAction('/login')}
               className="mt-10 opacity-0 group-hover:opacity-100 translate-y-3 group-hover:translate-y-0 transition-all duration-700 text-[9px] font-black text-blue-500 uppercase tracking-[0.5em] cursor-pointer"
             >
               Create Account —&gt;
@@ -442,7 +440,7 @@ const Dashboard = () => {
                     <img src={`https://www.gstatic.com/images/icons/material/system_gm/1x/${alt === 'twitter' ? 'post_add' : 'photo_camera'}_white_24dp.png`} className="w-6 h-6 opacity-50 group-hover:opacity-100 invert transition-all" alt={alt} />
                   </button>
                 ))}
-                <a href="https://github.com/Sejalsoni30" target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 hover:bg-blue-600 transition-all group">
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 hover:bg-blue-600 transition-all group">
                   <img src="https://www.gstatic.com/images/icons/material/system_gm/1x/github_black_white_24dp.png" className="w-6 h-6 opacity-50 group-hover:opacity-100 invert" alt="github" />
                 </a>
               </div>
@@ -479,7 +477,7 @@ const Dashboard = () => {
               <h5 className="text-[11px] font-black uppercase tracking-[0.4em] text-blue-500 mb-12">Resource</h5>
               <ul className="space-y-8">
                 <li>
-                  <a href="https://github.com/Sejalsoni30" target="_blank" rel="noopener noreferrer" className="text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors flex items-center gap-2 group">
+                  <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-xs font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors flex items-center gap-2 group">
                     <div className="w-0 h-[1px] bg-blue-500 group-hover:w-3 transition-all" />
                     GITHUB REPO
                   </a>

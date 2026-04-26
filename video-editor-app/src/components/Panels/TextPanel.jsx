@@ -1,29 +1,45 @@
 import React from 'react';
-import { useDispatch, useSelector } from 'react-redux'; // ✅ useSelector add kiya
-import { Heading1, Heading2, TextCursorInput } from 'lucide-react';
-import { addLayer, updateLayerContent, updateLayerPosition } from '../../store/projectSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { Heading1, Heading2, TextCursorInput, Move, Type as TypeIcon } from 'lucide-react';
+import { addLayer, updateLayerContent, updateLayerStyle } from '../../store/projectSlice';
+
 const TextPanel = () => {
   const dispatch = useDispatch();
-
-  // 1. Redux se selection aur saari layers nikal rahe hain
   const { layers, selectedLayerId } = useSelector((state) => state.project);
+  const selectedLayer = layers?.find(l => l.id === selectedLayerId);
 
-  // 2. Selected layer dhoondo aur check karo ki kya wo 'text' type hai
-  const selectedLayer = layers.find(l => l.id === selectedLayerId);
+  // Safety check - don't render if no layers or selected layer
+  if (!layers || !selectedLayer) {
+    return (
+      <div className="p-5 flex flex-col gap-4 bg-[#08080a] h-full overflow-y-auto custom-scrollbar">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 mb-2">
+          Neural Typography
+        </h3>
+        <div className="mt-10 flex flex-col items-center justify-center opacity-20 text-center space-y-2">
+          <TypeIcon size={40} className="text-zinc-600" />
+          <p className="text-[10px] font-bold uppercase tracking-widest">Select Text to Edit</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleAddText = (styleType) => {
+    const newTextId = `text-${Date.now()}`;
     const newText = {
-      id: `text-${Date.now()}`,
+      id: newTextId,
       type: 'text',
       content: styleType === 'h1' ? 'MAIN TITLE' : styleType === 'h2' ? 'SUBTITLE' : 'Body Text...',
       trackId: 'track-3',
       startTime: 0,
       duration: 5,
       style: {
-        fontSize: styleType === 'h1' ? 48 : styleType === 'h2' ? 32 : 18,
-        fontWeight: styleType === 'body' ? 'normal' : 'bold',
+        x: 0,
+        y: 0,
+        fontSize: styleType === 'h1' ? 60 : styleType === 'h2' ? 40 : 20,
+        fontWeight: styleType === 'body' ? '400' : '900',
         color: '#ffffff',
-        textAlign: 'center'
+        scale: 1,
+        rotation: 0
       }
     };
 
@@ -31,132 +47,139 @@ const TextPanel = () => {
   };
 
   return (
-    <div className="p-4 flex flex-col gap-4 bg-zinc-900/50 h-full overflow-y-auto custom-scrollbar">
-      <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-2">
-        Typography
+    <div className="p-5 flex flex-col gap-4 bg-[#08080a] h-full overflow-y-auto custom-scrollbar">
+      <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 mb-2">
+        Neural Typography
       </h3>
 
-      {/* --- Main Title Card --- */}
-      <div
-        onClick={() => handleAddText('h1')}
-        className="group bg-zinc-900 border border-zinc-800 p-4 rounded-xl cursor-pointer hover:border-blue-500/50 hover:bg-zinc-800/50 transition-all shadow-lg"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center group-hover:bg-blue-500/10 group-hover:text-blue-500 transition-colors">
-            <Heading1 size={20} />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-zinc-200">Main Title</h4>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-tight">Large bold heading</p>
-          </div>
-        </div>
-      </div>
-
-      {/* --- Subtitle Card --- */}
-      <div
-        onClick={() => handleAddText('h2')}
-        className="group bg-zinc-900 border border-zinc-800 p-4 rounded-xl cursor-pointer hover:border-blue-500/50 hover:bg-zinc-800/50 transition-all shadow-lg"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center group-hover:bg-blue-500/10 group-hover:text-blue-500 transition-colors">
-            <Heading2 size={20} />
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-zinc-300">Subtitle</h4>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-tight">Medium weight text</p>
-          </div>
-        </div>
-      </div>
-
-      {/* --- Body Text Card --- */}
-      <div
-        onClick={() => handleAddText('body')}
-        className="group bg-zinc-900 border border-zinc-800 p-4 rounded-xl cursor-pointer hover:border-blue-500/50 hover:bg-zinc-800/50 transition-all shadow-lg"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center group-hover:bg-blue-500/10 group-hover:text-blue-500 transition-colors">
-            <TextCursorInput size={20} />
-          </div>
-          <div>
-            <h4 className="text-sm text-zinc-400">Body Text</h4>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-tight">Standard paragraph</p>
-          </div>
-        </div>
-      </div>
-
-      {/* --- 🔥 DYNAMIC EDIT SECTION: Jab Text select ho tabhi dikhega --- */}
-      {/* --- 🔥 DYNAMIC EDIT SECTION: Text Selection aur Movement Controls --- */}
-      {selectedLayer && selectedLayer.type === 'text' && (
-        <div className="mt-6 p-4 bg-blue-600/10 border border-blue-500/30 rounded-xl animate-in fade-in slide-in-from-bottom-2">
-          {/* 1. Text Content Input */}
-          <label className="text-[10px] font-black uppercase text-blue-400 mb-2 block tracking-widest">
-            Editing Content
-          </label>
-          <input
-            type="text"
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-white text-sm outline-none focus:border-blue-500 transition-all shadow-inner mb-6"
-            value={selectedLayer.content}
-            autoFocus
-            onChange={(e) => dispatch(updateLayerContent({
-              id: selectedLayer.id,
-              content: e.target.value
-            }))}
-            placeholder="Type your name here..."
-          />
-
-          {/* 2. Movement Controls (X and Y Sliders) */}
-          <div className="space-y-4 border-t border-zinc-800 pt-4">
-            <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest mb-2">Position & Movement</p>
-
-            {/* Horizontal Movement (X) */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase">Horizontal (X)</label>
-                <span className="text-[10px] font-mono text-blue-500">{selectedLayer.style?.x || 0}px</span>
+      {/* --- Add Text Presets --- */}
+      <div className="grid grid-cols-1 gap-3">
+        {[
+          { type: 'h1', icon: Heading1, label: 'Headline', desc: 'Bold & Impactful' },
+          { type: 'h2', icon: Heading2, label: 'Subtitle', desc: 'Supporting Text' },
+          { type: 'body', icon: TextCursorInput, label: 'Paragraph', desc: 'Standard Body' }
+        ].map((item) => (
+          <div
+            key={item.type}
+            onClick={() => handleAddText(item.type)}
+            className="group bg-zinc-900/40 border border-white/5 p-4 rounded-2xl cursor-pointer hover:border-blue-500/40 hover:bg-blue-500/5 transition-all"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center group-hover:text-blue-500 transition-colors">
+                <item.icon size={20} />
               </div>
-              <input
-                type="range"
-                min="-500"
-                max="500"
-                step="1"
-                value={selectedLayer.style?.x || 0}
-                onChange={(e) => dispatch(updateLayerPosition({
-                  id: selectedLayer.id,
-                  x: parseInt(e.target.value),
-                  y: selectedLayer.style?.y || 0
-                }))}
-                className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
+              <div>
+                <h4 className="text-xs font-bold text-zinc-200">{item.label}</h4>
+                <p className="text-[9px] text-zinc-600 uppercase tracking-tighter">{item.desc}</p>
+              </div>
             </div>
+          </div>
+        ))}
+      </div>
 
-            {/* Vertical Movement (Y) */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase">Vertical (Y)</label>
-                <span className="text-[10px] font-mono text-blue-500">{selectedLayer.style?.y || 0}px</span>
-              </div>
-              <input
-                type="range"
-                min="-500"
-                max="500"
-                step="1"
-                value={selectedLayer.style?.y || 0}
-                onChange={(e) => dispatch(updateLayerPosition({
-                  id: selectedLayer.id,
-                  x: selectedLayer.style?.x || 0,
-                  y: parseInt(e.target.value)
-                }))}
-                className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-              />
+      {/* --- 🔥 DYNAMIC EDIT SECTION --- */}
+      {selectedLayer && selectedLayer.type === 'text' ? (
+        <div className="mt-6 space-y-6 animate-in slide-in-from-right-4 duration-300">
+          
+          {/* 1. Content Input */}
+          <div className="space-y-2">
+            <label className="text-[9px] font-black uppercase text-blue-500 tracking-widest flex items-center gap-2">
+              <TypeIcon size={10} /> Text Content
+            </label>
+            <textarea
+              className="w-full bg-black border border-white/5 rounded-xl p-3 text-sm text-white outline-none focus:border-blue-500/50 transition-all min-h-[80px] resize-none"
+              value={selectedLayer?.content || ''}
+              onChange={(e) => dispatch(updateLayerContent({
+                id: selectedLayer.id,
+                content: e.target.value
+              }))}
+            />
+          </div>
+
+          {/* 3. Color Picker */}
+          <div className="space-y-2">
+            <label className="text-[9px] font-black uppercase text-blue-500 tracking-widest flex items-center gap-2">
+              <TypeIcon size={10} /> Text Color
+            </label>
+            <div className="flex gap-2">
+              {['#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffa500'].map(color => (
+                <button
+                  key={color}
+                  onClick={() => dispatch(updateLayerStyle({
+                    id: selectedLayer.id,
+                    updates: { color: color }
+                  }))}
+                  className={`w-8 h-8 rounded-full border-2 ${selectedLayer?.style?.color === color ? 'border-blue-500' : 'border-white/20'}`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
             </div>
           </div>
 
-          <p className="text-[9px] text-zinc-500 mt-4 italic">
-            Live sync: Move sliders to shift "{selectedLayer.content}" on screen.
-          </p>
+          {/* 2. Style & Position Sliders */}
+          <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-5">
+            <div className="flex items-center gap-2 mb-2 text-[9px] font-black text-zinc-500 uppercase tracking-widest">
+              <Move size={10} /> Transform Node
+            </div>
+
+            {/* Font Size Slider */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-[10px]">
+                <span className="text-zinc-500">Size</span>
+                <span className="text-blue-500 font-mono">{selectedLayer?.style?.fontSize || 20}px</span>
+              </div>
+              <input
+                type="range" min="10" max="200"
+                value={selectedLayer?.style?.fontSize || 20}
+                onChange={(e) => dispatch(updateLayerStyle({
+                  id: selectedLayer.id,
+                  updates: { fontSize: parseInt(e.target.value) }
+                }))}
+                className="w-full h-1 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-blue-500"
+              />
+            </div>
+
+            {/* X Position */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-[10px]">
+                <span className="text-zinc-500">X Position</span>
+                <span className="text-blue-500 font-mono">{selectedLayer?.style?.x || 0}px</span>
+              </div>
+              <input
+                type="range" min="-1000" max="1000"
+                value={selectedLayer?.style?.x || 0}
+                onChange={(e) => dispatch(updateLayerStyle({
+                  id: selectedLayer.id,
+                  updates: { x: parseInt(e.target.value) }
+                }))}
+                className="w-full h-1 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-blue-500"
+              />
+            </div>
+
+            {/* Y Position */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-[10px]">
+                <span className="text-zinc-500">Y Position</span>
+                <span className="text-blue-500 font-mono">{selectedLayer?.style?.y || 0}px</span>
+              </div>
+              <input
+                type="range" min="-1000" max="1000"
+                value={selectedLayer?.style?.y || 0}
+                onChange={(e) => dispatch(updateLayerStyle({
+                  id: selectedLayer.id,
+                  updates: { y: parseInt(e.target.value) }
+                }))}
+                className="w-full h-1 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-10 flex flex-col items-center justify-center opacity-20 text-center space-y-2">
+          <TypeIcon size={40} className="text-zinc-600" />
+          <p className="text-[10px] font-bold uppercase tracking-widest">Select Text to Edit</p>
         </div>
       )}
-
     </div>
   );
 };

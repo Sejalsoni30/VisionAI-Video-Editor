@@ -5,243 +5,295 @@ const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
 const path = require('path');
 const fs = require('fs');
 const admin = require('firebase-admin');
-const cloudinary = require('../cloudinaryConfig');
+const { google } = require('googleapis');
+const { Readable } = require('stream');
 
+// FFmpeg Path Setup
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
-// --- ⚙️ Universal Cloud Processor (Optimized for Render) ---
-// Ye function ab direct Cloudinary URL lega aur edited video wapas Cloudinary par bhejega
-const processCloudVideo = async (inputUrl, outputName, commandAction, res) => {
-    const tempInputPath = path.join(__dirname, '../../temp', `input-${Date.now()}.mp4`);
-    const outputPath = path.join(__dirname, '../../temp', outputName);
+// --- ⚙️ HELPER: Google Drive Stream Fetcher ---
+const getDriveStream = async (fileId, token) => {
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: token });
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
+    const response = await drive.files.get(
+        { fileId: fileId, alt: 'media' },
+        { responseType: 'stream' }
+    );
+    return response.data;
+};
+
+// --- ⚙️ Universal Processor (Direct Streaming) ---
+const processDriveStream = async (fileId, token, commandAction, res, type = 'video') => {
     try {
-        console.log("📥 Downloading video from Cloudinary...");
-        
-        // 1. Pehle video download karo Render ke local storage mein
-        const response = await axios({
-            method: 'get',
-            url: inputUrl,
-            responseType: 'stream'
-        });
+        console.log(`🎬 Neural Processing (${type}): ${fileId}`);
+        const driveStream = await getDriveStream(fileId, token);
 
-        const writer = fs.createWriteStream(tempInputPath);
-        response.data.pipe(writer);
+        res.setHeader('Content-Type', type === 'audio' ? 'audio/mpeg' : 'video/mp4');
 
-        await new Promise((resolve, reject) => {
-            writer.on('finish', resolve);
-            writer.on('error', reject);
-        });
-
-        console.log("✅ Download complete. Now processing...");
-
-        // 2. Ab local file par FFmpeg chalao (Isse SIGSEGV nahi aayega)
-        let ffmpegCmd = ffmpeg(tempInputPath);
-
-        commandAction(ffmpegCmd)
+        let command = ffmpeg(driveStream)
+            .format(type === 'audio' ? 'mp3' : 'mp4')
             .outputOptions([
                 '-preset ultrafast',
-                '-threads 1',
-                '-movflags +faststart'
-            ])
-            .output(outputPath)
-            .on('start', (cmd) => console.log("🚀 Executing local FFmpeg:", cmd))
+                '-movflags frag_keyframe+empty_moov+faststart',
+                '-threads 1'
+            ]);
+
+        command = commandAction(command);
+
+        command
+            .on('start', (cmd) => console.log("🚀 FFmpeg Executing:", cmd))
             .on('error', (err) => {
                 console.error("❌ FFmpeg Error:", err.message);
-                if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
-                res.status(500).json({ error: err.message });
+                if (!res.headersSent) res.status(500).json({ error: err.message });
             })
-            .on('end', async () => {
-                try {
-                    console.log("✅ Edit successful. Uploading back to Cloudinary...");
-                    const result = await cloudinary.uploader.upload(outputPath, {
-                        resource_type: "video",
-                        folder: "visionai_edits"
-                    });
-
-                    // Cleanup: Dono files delete karo
-                    if (fs.existsSync(tempInputPath)) fs.unlinkSync(tempInputPath);
-                    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-
-                    res.json({ success: true, url: result.secure_url });
-                } catch (uploadErr) {
-                    res.status(500).json({ error: "Upload failed" });
-                }
-            })
-            .run();
+            .on('end', () => console.log("✅ Neural Node Finished"))
+            .pipe(res, { end: true });
 
     } catch (err) {
-        console.error("❌ Download Error:", err.message);
-        res.status(500).json({ error: "Video download fail ho gayi." });
+        console.error("❌ Node Error:", err.message);
+        if (!res.headersSent) res.status(500).json({ error: "Stream failed." });
     }
 };
 
-exports.splitVideo = (req, res) => {
-    const { videoUrl } = req.body;
-    const outputName = `split_${Date.now()}.mp4`;
-    // Split logic: For now, just taking first 10 seconds as a placeholder
-    processCloudVideo(videoUrl, outputName, (f) => f.setDuration(10), res);
-};
+// --- 🛠️ 1. VIDEO EDITING ACTIONS ---
 
-// --- 🛠️ 1. UPLOAD ACTION ---
-exports.uploadVideo = async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
-        const result = await cloudinary.uploader.upload(req.file.path, {
-            resource_type: "video",
-            folder: "visionai_edits"
-        });
-        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-        res.json({ success: true, url: result.secure_url, publicId: result.public_id });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Upload failed" });
-    }
-};
-
-// --- 🛠️ 2. EDITING ACTIONS (Cloud Compatible) ---
-
-exports.trimVideo = async (req, res) => {
-    const { videoUrl, startTime, duration } = req.body;
-    const outputName = `trim_${Date.now()}.mp4`;
-    processCloudVideo(videoUrl, outputName, (f) => f.setStartTime(startTime || 0).setDuration(duration || 5), res);
+exports.trimVideo = (req, res) => {
+    const { fileId, token, startTime, duration } = req.body;
+    processDriveStream(fileId, token, (f) =>
+        f.setStartTime(startTime || 0).setDuration(duration || 5),
+        res);
 };
 
 exports.changeSpeed = (req, res) => {
-    const { videoUrl, speed } = req.body;
-    const s = parseFloat(speed) || 1.5;
-    const outputName = `speed_${Date.now()}.mp4`;
-    processCloudVideo(videoUrl, outputName, (f) => 
-        f.videoFilters(`setpts=${1/s}*PTS`).audioFilters(`atempo=${s}`), 
-    res);
+    const { fileId, token, speed } = req.body;
+    const s = parseFloat(speed) || 1.0;
+    processDriveStream(fileId, token, (f) =>
+        f.videoFilters(`setpts=${1 / s}*PTS`).audioFilters(`atempo=${s}`),
+        res);
 };
 
 exports.rotateVideo = (req, res) => {
-    const { videoUrl } = req.body;
-    const outputName = `rotate_${Date.now()}.mp4`;
-    processCloudVideo(videoUrl, outputName, (f) => f.videoFilters('transpose=1'), res);
+    const { fileId, token } = req.body;
+    processDriveStream(fileId, token, (f) => f.videoFilters('transpose=1'), res);
 };
 
-exports.adjustVolume = (req, res) => {
-    const { videoUrl, volume } = req.body;
-    const outputName = `vol_${Date.now()}.mp4`;
-    processCloudVideo(videoUrl, outputName, (f) => f.audioFilters(`volume=${volume || 1.0}`), res);
-};
-
-exports.resizeVideo = (req, res) => {
-    const { videoUrl, size } = req.body;
-    const outputName = `resize_${Date.now()}.mp4`;
-    processCloudVideo(videoUrl, outputName, (f) => f.size(size || '1280x720').aspect('16:9'), res);
+exports.flipVideo = (req, res) => {
+    const { fileId, token } = req.body;
+    processDriveStream(fileId, token, (f) => f.videoFilters('hflip'), res);
 };
 
 exports.applyFilter = (req, res) => {
-    const { videoUrl, filterType } = req.body;
-    const outputName = `filter_${Date.now()}.mp4`;
-    processCloudVideo(videoUrl, outputName, (f) => {
+    const { fileId, token, filterType } = req.body;
+    processDriveStream(fileId, token, (f) => {
         if (filterType === 'grayscale') return f.videoFilters('format=gray');
         if (filterType === 'vintage') return f.videoFilters('eq=brightness=0.05:saturation=0.4');
+        if (filterType === 'cinematic') return f.videoFilters('unsharp=5:5:1.0:5:5:0.0,curves=all="0/0 0.5/0.4 1/1"');
         return f;
     }, res);
 };
 
-// --- 🛠️ 3. PROJECT & MUSIC ---
+// --- 🛠️ 2. ADVANCED WORKING FEATURES (New) ---
 
+exports.resizeVideo = (req, res) => {
+    const { fileId, token, size } = req.body; // size example: "1280x720"
+    processDriveStream(fileId, token, (f) => f.size(size || '1920x1080').aspect('16:9'), res);
+};
 
-exports.exportProject = async (req, res) => {
+exports.addText = (req, res) => {
+    const { fileId, token, text } = req.body;
+    processDriveStream(fileId, token, (f) =>
+        f.videoFilters({
+            filter: 'drawtext',
+            options: {
+                text: text || 'VisionAI',
+                fontcolor: 'white',
+                fontsize: 50,
+                x: '(w-text_w)/2',
+                y: '(h-text_h)/2',
+                shadowcolor: 'black',
+                shadowx: 2,
+                shadowy: 2
+            }
+        }), res);
+};
+
+// Split Logic (Sends back a specific segment)
+exports.splitVideo = (req, res) => {
+    const { fileId, token, start, end } = req.body;
+    const duration = (parseFloat(end) - parseFloat(start)) || 5;
+    processDriveStream(fileId, token, (f) => f.setStartTime(start || 0).setDuration(duration), res);
+};
+
+// Merge (Currently returns first stream, multi-stream merging needs temp files)
+exports.mergeVideos = (req, res) => {
+    const { fileId, token } = req.body;
+    // Simple response to prevent crash, merging requires complex Temp FS logic
+    processDriveStream(fileId, token, (f) => f, res);
+};
+
+// --- 🛠️ 3. AUDIO ACTIONS ---
+
+exports.adjustAudio = (req, res) => {
+    const { fileId, token, volume, pitch } = req.body;
+    processDriveStream(fileId, token, (f) => {
+        let filters = [];
+        if (volume) filters.push(`volume=${volume}`);
+        if (pitch) filters.push(`asetrate=44100*${pitch},aresample=44100`);
+        return f.audioFilters(filters);
+    }, res, 'audio');
+};
+
+// --- 🛠️ 4. DRIVE UPLOAD & PROJECT SAVE ---
+
+exports.uploadToDrive = async (req, res) => {
     try {
-        const { projectName, layers } = req.body;
-        const db = admin.firestore();
-        // 1. RTDB ko hata kar Firestore use karo (db humne top par import kiya hai)
-        console.log("🎬 Starting Firestore Export for:", projectName);
-
-        let finalUrl = "";
-        if (layers && layers.length > 0) {
-            finalUrl = layers[0].url || ""; 
-        }
-
-        // 2. 'projects' naam ki collection mein data add karo
-        // Firestore mein .add() karne se unique ID apne aap ban jati hai
-        const docRef = await db.collection('projects').add({
-            projectName: projectName || "Untitled Project",
-            layers: layers || [],
-            finalVideoUrl: finalUrl,
-            createdAt: admin.firestore.FieldValue.serverTimestamp() 
+        if (!req.file) return res.status(400).json({ success: false, message: "No data" });
+        const token = req.headers.authorization?.split(' ')[1];
+        const oauth2Client = new google.auth.OAuth2();
+        oauth2Client.setCredentials({ access_token: token });
+        const drive = google.drive({ version: 'v3', auth: oauth2Client });
+        const bufferStream = new Readable();
+        bufferStream.push(req.file.buffer);
+        bufferStream.push(null);
+        const response = await drive.files.create({
+            requestBody: { name: req.file.originalname, mimeType: req.file.mimetype },
+            media: { mimeType: req.file.mimetype, body: bufferStream },
         });
-
-        console.log("✅ Export Recorded in Firestore with ID:", docRef.id);
-
-        // 3. Frontend ko response bhej do
-        res.json({ 
-            success: true, 
-            message: "Project saved to Firestore!",
-            details: { 
-                dbId: docRef.id, // Unique ID jo Firestore dashboard par dikhegi
-                url: finalUrl 
-            } 
-        });
-
+        res.json({ success: true, fileId: response.data.id, name: response.data.name });
     } catch (error) {
-        console.error("❌ Firestore Export Error:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 };
-exports.addText = (req, res) => {
-    const { videoUrl, text } = req.body;
-    const outputName = `text_${Date.now()}.mp4`;
-    
-    // Render (Linux) par default fonts use karne ke liye drawtext filter
-    processCloudVideo(videoUrl, outputName, (f) => 
-        f.videoFilters(`drawtext=text='${text || 'VisionAI'}':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=(h-text_h)/2`), 
-    res);
-};
 
-// --- ⚙️ 2. MERGE VIDEOS ACTION ---
-exports.mergeVideos = (req, res) => {
-    const { videoUrls } = req.body; // Array of Cloudinary URLs
-    
-    if (!videoUrls || videoUrls.length < 2) {
-        return res.status(400).json({ error: "At least 2 files needed to merge!" });
+const resolveMediaInput = async (sourceUrl, token) => {
+    if (!sourceUrl) throw new Error('Source URL is required');
+
+    if (sourceUrl.startsWith('/music/')) {
+        return path.join(__dirname, '../../public', sourceUrl.replace(/^\//, ''));
     }
 
-    const outputName = `merged_${Date.now()}.mp4`;
-    const outputPath = path.join(__dirname, '../../temp', outputName);
+    if (sourceUrl.includes('/api/video/stream/')) {
+        const fileId = sourceUrl.split('/stream/')[1].split('?')[0];
+        return await getDriveStream(fileId, token);
+    }
 
-    console.log("🔗 Merging videos started...");
+    if (sourceUrl.includes('drive.google.com')) {
+        const fileId = sourceUrl.split('/d/')[1]?.split('/')[0];
+        return await getDriveStream(fileId, token);
+    }
 
-    let command = ffmpeg();
-    
-    // Har URL ko input ki tarah add karo
-    videoUrls.forEach(url => {
-        command = command.input(url);
-    });
+    if (sourceUrl.startsWith('http')) {
+        return sourceUrl;
+    }
 
-    command
-        .outputOptions([
-            '-preset ultrafast',
-            '-movflags +faststart'
-        ])
-        .on('error', (err) => {
-            console.error("❌ Merge Error:", err.message);
-            res.status(500).json({ error: "Merge fail: Clips compatibility issue." });
-        })
-        .on('end', async () => {
-            try {
-                const result = await cloudinary.uploader.upload(outputPath, {
-                    resource_type: "video",
-                    folder: "visionai_edits"
-                });
-                if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-                res.json({ success: true, url: result.secure_url });
-            } catch (err) {
-                res.status(500).json({ error: "Merge upload failed" });
-            }
-        })
-        .mergeToFile(outputPath, path.join(__dirname, '../../temp'));
+    return sourceUrl;
 };
+
+const mapCssFilterToFFmpeg = (filter) => {
+    if (!filter || filter === 'none') return null;
+    if (filter.includes('grayscale')) return 'format=gray';
+    if (filter.includes('sepia')) return 'colorchannelmixer=0.393:0.769:0.189:0:0.349:0.686:0.168:0:0.272:0.534:0.131';
+    if (filter.includes('brightness')) return 'eq=brightness=0.5';
+    if (filter.includes('invert')) return "lutrgb='r=255-val:g=255-val:b=255-val'";
+    if (filter.includes('blur')) return 'gblur=sigma=2';
+    if (filter.includes('contrast')) return 'eq=contrast=2';
+    if (filter.includes('saturate')) return 'eq=saturation=2';
+    if (filter.includes('hue-rotate')) return 'hue=h=90';
+    if (filter.includes('cinematic')) return 'unsharp=5:5:1.0:5:5:0.0,curves=all="0/0 0.5/0.4 1/1"';
+    return null;
+};
+
+exports.exportProject = async (req, res) => {
+    try {
+        const { projectName, selectedLayerId, layers, assets, filename, token } = req.body;
+        const authToken = token || req.headers.authorization?.split(' ')[1];
+
+        if (!layers || !layers.length) return res.status(400).json({ error: 'No layers found' });
+        if (!authToken) return res.status(400).json({ error: 'Authentication token missing' });
+
+        // 🎯 Target layer identify karo
+        const exportLayer = layers.find(l => l.id === selectedLayerId) || layers.find(l => l.type === 'video' || l.type === 'image');
+        if (!exportLayer) return res.status(400).json({ error: 'Nothing to export' });
+
+        const layerAsset = assets.find(a => a.id === exportLayer.assetId);
+        const sourceUrl = layerAsset?.url || exportLayer.url;
+        const mainInput = await resolveMediaInput(sourceUrl, authToken);
+
+        // 📝 Text & 🎵 Audio layers filter karo
+        const textLayers = layers.filter(l => l.type === 'text');
+        const audioLayer = layers.find(l => l.type === 'audio');
+
+        // 🎨 CSS to FFmpeg Filter Mapping
+        const filters = [];
+        if (exportLayer.style?.filter) {
+            const ffFilter = mapCssFilterToFFmpeg(exportLayer.style.filter);
+            if (ffFilter) filters.push(ffFilter);
+        }
+
+        // ✍️ DrawText Logic (All text layers combined)
+        textLayers.forEach(text => {
+            const start = text.startTime || 0;
+            const end = start + (text.duration || 5);
+            const hexColor = (text.style?.color || '#ffffff').replace('#', '0x');
+            
+            filters.push({
+                filter: 'drawtext',
+                options: {
+                    text: text.content || '',
+                    fontcolor: hexColor,
+                    fontsize: text.style?.fontSize || 32,
+                    x: `(w-text_w)/2 + ${text.style?.x || 0}`, // Dynamic centering + offset
+                    y: `(h-text_h)/2 + ${text.style?.y || 0}`,
+                    enable: `between(t,${start},${end})`,
+                    shadowcolor: 'black',
+                    shadowx: 2,
+                    shadowy: 2
+                }
+            });
+        });
+
+        // 🎥 Start FFmpeg Command
+        let command = ffmpeg(mainInput);
+
+        // 📎 Add Audio if exists
+        if (audioLayer) {
+            const audioInput = await resolveMediaInput(audioLayer.url, authToken);
+            command = command.input(audioInput).outputOptions(['-map 0:v:0', '-map 1:a:0', '-shortest']);
+        }
+
+        // 🛠️ Final Output Settings
+        res.setHeader('Content-Type', exportLayer.type === 'image' && !audioLayer ? 'image/png' : 'video/mp4');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        command
+            .videoFilters(filters)
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .format('mp4')
+            .outputOptions([
+                '-pix_fmt yuv420p', // standard for playback compatibility
+                '-preset ultrafast',
+                '-movflags frag_keyframe+empty_moov+faststart'
+            ])
+            .on('start', (cmd) => console.log("🚀 Exporting with:", cmd))
+            .on('error', (err) => {
+                console.error('❌ FFmpeg Export Failed:', err.message);
+                if (!res.headersSent) res.status(500).json({ error: "Rendering crashed" });
+            })
+            .pipe(res, { end: true });
+
+    } catch (error) {
+        console.error('❌ Neural Export Error:', error.message);
+        if (!res.headersSent) res.status(500).json({ error: error.message });
+    }
+};
+
 exports.getMusicLibrary = (req, res) => {
     const musicDir = path.join(__dirname, '../../public/music');
-    if (!fs.existsSync(musicDir)) return res.status(500).json({ error: "Music folder missing" });
-
+    if (!fs.existsSync(musicDir)) return res.status(200).json([]);
     fs.readdir(musicDir, (err, files) => {
         if (err) return res.status(500).json({ error: "Read error" });
         const musicFiles = files
@@ -249,9 +301,42 @@ exports.getMusicLibrary = (req, res) => {
             .map((file, index) => ({
                 id: `music-${index}`,
                 name: file.replace('.mp3', '').replace(/_/g, ' '),
-                url: `/music/${file}`,
-                duration: "Music Track"
+                type: 'audio',
+                url: `/music/${file}`
             }));
         res.json(musicFiles);
     });
+};
+
+// backend/src/controllers/videoController.js
+
+// backend/src/controllers/videoController.js
+
+exports.streamVideo = async (req, res) => {
+    try {
+        const { fileId } = req.params;
+        const { token } = req.query; // URL se token nikalna
+
+        if (!fileId || !token) {
+            return res.status(400).json({ error: "Missing File ID or Token" });
+        }
+
+        console.log(`🎥 Neural Stream Triggered for ID: ${fileId}`);
+
+        // Google Drive se stream mangwao
+        const driveStream = await getDriveStream(fileId, token);
+
+        // Browser ko batao ki ye video hai
+        res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+
+        // Data ko seedha frontend video tag mein bhejo
+        driveStream.pipe(res);
+
+    } catch (error) {
+        console.error("❌ Stream Error:", error.message);
+        if (!res.headersSent) {
+            res.status(500).json({ error: "Drive streaming failed" });
+        }
+    }
 };

@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { Scissors, Timer, RotateCcw, Volume2, Loader2 } from 'lucide-react';
+import { 
+  Scissors, Timer, RotateCcw, Volume2, 
+  Loader2, Zap, PlayCircle, FastForward, 
+  Wind, Film 
+} from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateAsset } from "../../store/projectSlice";
+import { motion, AnimatePresence } from 'framer-motion';
+import { updateAsset, setIsProcessing } from "../../store/projectSlice";
 import IconButton from "../Common/IconButton";
 import { API_URL } from '../../config';
+
 const VideoTools = () => {
   const dispatch = useDispatch();
   const { assets, layers, selectedLayerId } = useSelector((state) => state.project);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessingLocal, setIsProcessingLocal] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
 
   // 🎯 Selected Video nikalne ka logic
   const getActiveVideo = () => {
@@ -17,87 +24,143 @@ const VideoTools = () => {
 
   const handleAction = async (actionType, params = {}) => {
     const activeVideo = getActiveVideo();
-    if (!activeVideo) return alert("Video select karo!");
+    const token = localStorage.getItem('googleDriveToken');
 
-    setIsProcessing(true);
+    if (!activeVideo) return;
+    if (!token) return alert("Security Token Missing. Please Re-login.");
+
+    setIsProcessingLocal(true);
+    dispatch(setIsProcessing(true));
+    setStatusMsg(`Neural ${actionType} in progress...`);
 
     try {
-      // 📢 Ab hum pura Cloudinary URL bhej rahe hain
-      console.log("🚀 Sending to Backend:", {
-        action: actionType,
-        url: activeVideo.url, // 👈 Pura URL check karo console mein
-        params: params
-      });
-
-      // VideoTools.jsx ke andar
-      const response = await fetch(`${API_URL}/video/${actionType}`, {
+      const response = await fetch(`${API_URL}/api/video/${actionType}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoUrl: activeVideo.url,
-          startTime: params.startTime || 0,
-          duration: params.duration || 5,
-          ...params
+          fileId: activeVideo.id,
+          token: token,
+          ...params,
         }),
-
       });
 
-      if (!response.ok) throw new Error(`Server Error: ${response.status}`);
+      if (!response.ok) throw new Error(`Engine Error: ${response.status}`);
 
-      const data = await response.json();
+      const blob = await response.blob();
+      const editedVideoUrl = URL.createObjectURL(blob);
 
-      // ✅ Agar backend ne edit karke naya Cloudinary URL bheja hai
-      if (data.url) {
-        dispatch(updateAsset({
-          id: activeVideo.id,
-          updates: { url: data.url } // 👈 Purani video ki jagah Edited video ka URL!
-        }));
+      dispatch(updateAsset({
+        id: activeVideo.id,
+        updates: { url: editedVideoUrl, lastAction: actionType } 
+      }));
 
-        alert(`Operation ${actionType} Successful! ✨`);
-        console.log("✅ New Edited URL:", data.url);
-      }
+      console.log("✅ Stream Processed Successfully");
+      
     } catch (err) {
-      console.error("❌ Error:", err);
-      alert("Editing fail ho gayi. Backend check karo!");
+      console.error("❌ Neural Failure:", err);
     } finally {
-      setIsProcessing(false);
+      setIsProcessingLocal(false);
+      dispatch(setIsProcessing(false));
+      setStatusMsg('');
     }
   };
 
-  return (
-    <div className="flex items-center gap-4 p-3 bg-zinc-900 border border-white/10 rounded-xl relative">
-      {isProcessing && (
-        <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center z-10">
-          <Loader2 className="animate-spin text-blue-500" size={24} />
-        </div>
-      )}
+  const activeVideo = getActiveVideo();
 
-      <div className="flex gap-2 border-r border-zinc-800 pr-3">
+  return (
+    <motion.div 
+      initial={{ y: 10, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className={`flex items-center gap-2 p-1.5 bg-[#0c0c0e]/80 backdrop-blur-2xl rounded-2xl border border-white/5 shadow-2xl relative transition-all ${!selectedLayerId ? 'opacity-50 grayscale' : 'opacity-100'}`}
+    >
+      
+      {/* 🌀 Cinematic Neural Processing Loader */}
+      <AnimatePresence>
+        {isProcessingLocal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-blue-600/10 backdrop-blur-[4px] rounded-2xl flex items-center justify-center z-50 overflow-hidden"
+          >
+            <div className="flex flex-col items-center gap-2">
+              <div className="relative">
+                <Loader2 className="animate-spin text-blue-500" size={28} />
+                <Zap className="absolute inset-0 m-auto text-white animate-pulse" size={12} />
+              </div>
+              <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-400 animate-pulse">
+                {statusMsg}
+              </span>
+            </div>
+            {/* Shimmer Effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-[shimmer_1.5s_infinite]" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- Section 1: Temporal Tools (Time) --- */}
+      <div className="flex items-center gap-1.5 px-2 border-r border-white/5">
         <IconButton
           icon={Scissors}
-          onClick={() => handleAction('trim', { startTime: '00:00:00', duration: 10 })}
+          onClick={() => handleAction('trim', { startTime: 0, duration: 10 })}
           tooltip="Trim 10s"
+          size={16}
+          className="text-rose-500 hover:bg-rose-500/10"
         />
         <IconButton
           icon={Timer}
           onClick={() => handleAction('speed', { speed: 2.0 })}
-          tooltip="2x Fast"
+          tooltip="Fast Forward 2x"
+          size={16}
+          className="text-amber-500 hover:bg-amber-500/10"
+        />
+        <IconButton
+          icon={Wind}
+          onClick={() => handleAction('speed', { speed: 0.5 })}
+          tooltip="Slow Motion 0.5x"
+          size={16}
+          className="text-cyan-400 hover:bg-cyan-400/10"
         />
       </div>
 
-      <div className="flex gap-2">
+      {/* --- Section 2: Geometry & Audio --- */}
+      <div className="flex items-center gap-1.5 px-2 border-r border-white/5">
         <IconButton
           icon={RotateCcw}
-          onClick={() => handleAction('rotate', { angle: 90 })}
-          tooltip="Rotate 90°"
+          onClick={() => handleAction('rotate')}
+          tooltip="Clockwise 90°"
+          className="text-indigo-400 hover:bg-indigo-400/10"
         />
         <IconButton
           icon={Volume2}
-          onClick={() => handleAction('volume', { volume: 0.3 })}
-          tooltip="Set Volume to 30%"
+          onClick={() => handleAction('volume', { volume: 0.5 })}
+          tooltip="Set Gain 50%"
+          className="text-emerald-500 hover:bg-emerald-500/10"
         />
       </div>
-    </div>
+
+      {/* --- Section 3: Smart AI Lab --- */}
+      <div className="flex items-center gap-1.5 px-2">
+        <IconButton
+          icon={Film}
+          onClick={() => handleAction('filter', { filterType: 'cinematic' })}
+          tooltip="AI Cinematic LUT"
+          className="text-purple-500 hover:bg-purple-500/10 animate-pulse"
+        />
+      </div>
+
+      {/* --- Processor Info --- */}
+      <div className="ml-2 pl-4 border-l border-white/5 hidden md:flex flex-col items-start">
+        <div className="flex items-center gap-2">
+          <PlayCircle size={10} className="text-zinc-600" />
+          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">
+            Node Ready
+          </span>
+        </div>
+        <span className="text-[7px] font-bold text-zinc-800 uppercase mt-0.5">Bitstream 64-bit</span>
+      </div>
+
+    </motion.div>
   );
 };
 

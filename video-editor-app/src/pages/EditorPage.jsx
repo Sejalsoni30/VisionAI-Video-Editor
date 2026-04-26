@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion'; // Smooth transitions ke liye
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Layout/Navbar';
 import Sidebar from '../components/Layout/Sidebar';
 import PropertiesPanel from '../components/Layout/PropertiesPanel';
@@ -13,11 +13,40 @@ import TextPanel from '../components/Panels/TextPanel';
 import VideoEffectsPanel from '../components/Panels/VideoEffectsPanel';
 import AssetLibrary from '../components/Editor/AssetLibrary';
 import MusicLibrary from '../components/Panels/MusicLibrary';
+import { useSelector } from 'react-redux';
 
 const EditorPage = () => {
   const [activeTab, setActiveTab] = useState('assets');
+  const selectedLayerId = useSelector((state) => state.project.selectedLayerId);
+  const layers = useSelector((state) => state.project.layers);
+  
+  // 🎯 Logic: Pata karo abhi kaun sa element select hai taaki sahi toolbar dikhe
+  const selectedLayer = layers.find(l => l.id === selectedLayerId);
 
-  const renderSidePanel = () => {
+  const formatTime = (seconds = 0) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    const loadScripts = () => {
+      if (window.gapi) return;
+      const script = document.createElement("script");
+      script.src = "https://apis.google.com/js/api.js";
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        window.gapi.load('picker', () => {
+          console.log("🚀 Neural Picker Engine Online");
+        });
+      };
+      document.body.appendChild(script);
+    };
+    loadScripts();
+  }, []);
+
+  const renderSidePanel = useCallback(() => {
     switch (activeTab) {
       case 'assets': return <AssetLibrary />;
       case 'video': return <VideoEffectsPanel />;
@@ -25,77 +54,89 @@ const EditorPage = () => {
       case 'text': return <TextPanel />;
       default: return <AssetLibrary />;
     }
-  };
+  }, [activeTab]);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-[#050506] text-zinc-200 overflow-hidden font-inter">
-      {/* 1. Navbar - Glass effect */}
-      <div className="z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md">
+    <div className="h-screen w-full flex flex-col bg-[#020203] text-zinc-200 overflow-hidden font-inter selection:bg-blue-500/30">
+      
+      {/* 1. Navbar - Sticky & Minimal */}
+      <div className="z-[100] relative">
         <Navbar />
       </div>
 
       <div className="flex flex-1 overflow-hidden relative">
-        {/* 2. Primary Sidebar - Fixed icons */}
+        
+        {/* 2. Sidebar - Icon Navigation */}
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        {/* 3. Secondary Side Panel - Glassmorphism UI */}
-        <motion.aside 
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          className="w-72 lg:w-80 flex-shrink-0 bg-[#0c0c0e]/50 border-r border-white/5 flex flex-col overflow-hidden backdrop-blur-xl shadow-2xl hidden md:flex"
-        >
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {renderSidePanel()}
-          </div>
-        </motion.aside>
+        {/* 3. Side Panel - Glassmorphism UI */}
+        <AnimatePresence mode="wait">
+          <motion.aside 
+            key={activeTab}
+            initial={{ x: -10, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -10, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="w-72 lg:w-85 flex-shrink-0 bg-[#08080a] border-r border-white/5 flex flex-col overflow-hidden z-20 shadow-[20px_0_40px_rgba(0,0,0,0.3)]"
+          >
+            <div className="flex-1 overflow-y-auto custom-scrollbar bg-gradient-to-b from-white/[0.02] to-transparent">
+              {renderSidePanel()}
+            </div>
+          </motion.aside>
+        </AnimatePresence>
 
-        {/* 4. Core Workspace - Dynamic Resizing */}
-        <main className="flex-1 flex flex-col min-w-0 relative bg-gradient-to-b from-[#0e0e11] to-[#050506]">
+        {/* 4. Core Workspace */}
+        <main className="flex-1 flex flex-col min-w-0 relative bg-[#050506]">
           
-          {/* Floating Toolbar - Neo-brutalism touch */}
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[60]">
-            <AnimatePresence mode="wait">
-              <motion.div 
-                key={activeTab}
-                initial={{ y: -10, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -10, opacity: 0 }}
-                className="px-2 py-1 bg-[#121214]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex items-center gap-2"
-              >
-                {(activeTab === 'assets' || activeTab === 'video') && <VideoTools />}
-                {activeTab === 'image' && <ImageTools />}
-                {activeTab === 'audio' && <AudioTools />}
-                {activeTab === 'text' && (
-                  <span className="px-4 py-2 text-[11px] font-bold text-blue-400 tracking-widest uppercase italic">
-                    Text Canvas Active
-                  </span>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {/* Player Viewport - Clean & Large */}
-          <div className="flex-1 flex flex-col overflow-hidden relative p-4 lg:p-8 min-h-0">
-            <div className="flex-1 bg-black rounded-[2.5rem] border border-white/5 overflow-hidden flex flex-col shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] relative group transition-all duration-500 hover:border-white/10">
-              <div className="flex-1 relative flex items-center justify-center bg-[radial-gradient(circle_at_center,_#111_0%,_#000_100%)]">
-                <PreviewCanvas />
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                 <Controls />
-              </div>
+          {/* Player Viewport */}
+          <div className="flex-1 flex flex-col overflow-hidden relative p-4 lg:p-6 min-h-0">
+            <div className="flex-1 bg-black rounded-[3rem] border border-white/[0.03] overflow-hidden flex flex-col shadow-inner relative group">
+              <PreviewCanvas />
+              
+              {/* Fixed Controls - Now in small box */}
+              <Controls />
             </div>
           </div>
 
-          {/* Timeline Section - Deep depth */}
-          <div className="h-[300px] lg:h-[340px] flex-shrink-0 border-t border-white/5 bg-[#09090b] shadow-[0_-20px_40px_rgba(0,0,0,0.4)] z-30">
+          {/* Timeline Section */}
+          <div className="h-[280px] lg:h-[320px] flex-shrink-0 border-t border-white/5 bg-[#050506] relative z-30">
             <Timeline />
           </div>
         </main>
 
-        {/* 5. Right Properties Panel - Compact & Sleek */}
-        <aside className="w-64 lg:w-72 flex-shrink-0 hidden xl:block bg-[#09090b] border-l border-white/5 shadow-2xl overflow-y-auto overflow-x-hidden">
-          <PropertiesPanel />
+        {/* 5. Right Editing + Properties Panel */}
+        <aside className="w-80 flex-shrink-0 hidden lg:flex flex-col bg-[#08080a] border-l border-white/5 relative z-20">
+          <div className="px-4 py-4 border-b border-white/5">
+            <div className="flex flex-col gap-2 mb-4">
+              <div className="text-[10px] uppercase tracking-[0.35em] text-zinc-500 font-black">
+                Editing Controls
+              </div>
+              <div className="text-sm font-semibold text-white truncate">
+                {selectedLayer ? selectedLayer.name || `${selectedLayer.type} Layer` : 'No Layer Selected'}
+              </div>
+              <div className="text-[10px] text-zinc-500">
+                {selectedLayer
+                  ? `${selectedLayer.type.toUpperCase()} · Start ${formatTime(selectedLayer.startTime || 0)} · ${selectedLayer.duration ? `${selectedLayer.duration}s` : 'Auto duration'}`
+                  : 'Select a timeline layer to reveal edit tools and properties.'}
+              </div>
+            </div>
+            <div className="space-y-3">
+              {(!selectedLayer || selectedLayer?.type === 'video') && <VideoTools />}
+              {selectedLayer?.type === 'image' && <ImageTools />}
+              {selectedLayer?.type === 'audio' && <AudioTools />}
+              {!selectedLayerId && (
+                <div className="rounded-3xl border border-dashed border-white/10 bg-white/5 p-4 text-[11px] text-zinc-400">
+                  Select a layer on the timeline to reveal layer-specific editing tools.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto bg-gradient-to-b from-white/[0.01] to-transparent p-4">
+            <PropertiesPanel />
+          </div>
         </aside>
+
       </div>
     </div>
   );

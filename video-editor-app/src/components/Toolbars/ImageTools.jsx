@@ -1,135 +1,164 @@
 import React, { useState } from 'react';
-import { Palette, Maximize2, Layers, Wand2, Crop, Loader2, Plus, Sparkles, MoveDiagonal } from 'lucide-react';
+import { 
+  Palette, Maximize2, Layers, Wand2, Crop, 
+  Loader2, Plus, Sparkles, MoveDiagonal, 
+  RefreshCcw, Flame 
+} from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateAsset } from "../../store/projectSlice";
+import { motion, AnimatePresence } from 'framer-motion';
+import { updateAsset, setIsProcessing } from "../../store/projectSlice";
 import IconButton from '../Common/IconButton';
-import { API_URL } from '../../config'; // 👈 Check karo ye import sahi hai na?
+import { API_URL } from '../../config';
 
 const ImageTools = () => {
   const dispatch = useDispatch();
   const { assets, layers, selectedLayerId } = useSelector((state) => state.project);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessingLocal, setIsProcessingLocal] = useState(false);
 
+  // 🎯 Helper: Get currently active asset
   const getActiveAsset = () => {
+    if (!selectedLayerId) return null;
     const layer = layers.find(l => l.id === selectedLayerId);
     return layer ? assets.find(a => a.id === layer.assetId) : null;
   };
 
+  const activeAsset = getActiveAsset();
+
   const handleAction = async (actionType, params = {}) => {
-    const activeAsset = getActiveAsset();
-    if (!activeAsset) return;
+    if (!activeAsset && actionType !== 'merge') return;
 
-    setIsProcessing(true);
-
-    // 🔥 FIX: Localhost logic hata kar pura URL ya name bhej rahe hain
-    // Backend humara ab pura URL handle kar sakta hai
-    const currentUrl = activeAsset.url || activeAsset.name;
-
+    setIsProcessingLocal(true);
+    dispatch(setIsProcessing(true));
     try {
-      console.log(`🚀 Executing ${actionType} on:`, currentUrl);
+      const token = localStorage.getItem('googleDriveToken');
+      if (!token) throw new Error("Security Token Missing. Please Re-login.");
 
-      // 🌐 FIX: API_URL variable use kar rahe hain
-      const response = await fetch(`${API_URL}/video/${actionType}`, {
+      const response = await fetch(`${API_URL}/api/video/${actionType}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoUrl: currentUrl, // 👈 Pura Cloudinary link bhejo
+          fileId: activeAsset.id,
+          token: token,
           ...params
         }),
       });
 
-      const data = await response.json();
+      if (!response.ok) throw new Error(`Engine Error: ${response.status}`);
 
-      if (response.ok && data.url) {
-        dispatch(updateAsset({
-          id: activeAsset.id,
-          updates: { url: data.url }
-        }));
-        console.log("✅ Success:", data.url);
-      } else {
-        throw new Error(data.error || "Server error");
-      }
+      const blob = await response.blob();
+      const editedUrl = URL.createObjectURL(blob);
+
+      dispatch(updateAsset({
+        id: activeAsset.id,
+        updates: { url: editedUrl, lastAction: actionType }
+      }));
+
+      console.log("✅ Stream Processed Successfully");
     } catch (err) {
       console.error("❌ Action Error:", err.message);
-      alert(`Operation fail ho gayi: ${err.message}`);
+      // alert ki jagah console ya toast use karna professional hai
     } finally {
-      setIsProcessing(false);
+      setIsProcessingLocal(false);
+      dispatch(setIsProcessing(false));
     }
   };
 
+  // Common button class for consistency
+  const btnClass = "hover:scale-110 active:scale-95 transition-all duration-200";
+
   return (
-    <div className="flex items-center gap-3 p-1.5 bg-zinc-900/90 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl relative transition-all duration-500">
+    <motion.div 
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className={`flex items-center gap-4 p-2 bg-[#0c0c0e]/90 backdrop-blur-2xl rounded-2xl border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative z-40 ${!selectedLayerId ? 'opacity-50' : 'opacity-100'}`}
+    >
+      {/* 🌀 Cinematic Neural Loader */}
+      <AnimatePresence>
+        {isProcessingLocal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-blue-600/10 backdrop-blur-[3px] rounded-2xl flex items-center justify-center z-50"
+          >
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="animate-spin text-blue-400" size={24} />
+              <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-400 animate-pulse">Processing</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* 🌀 Cinematic Loader */}
-      {isProcessing && (
-        <div className="absolute inset-0 bg-blue-600/10 backdrop-blur-[2px] rounded-2xl flex items-center justify-center z-20 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_infinite]"></div>
-          <Loader2 className="animate-spin text-blue-500" size={20} />
-        </div>
-      )}
-
-      {/* --- Section 1: Geometry --- */}
-      <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl">
+      {/* --- Section 1: Geometry & Layout --- */}
+      <div className="flex items-center gap-1.5 px-2 border-r border-white/5">
         <IconButton
           icon={Crop}
-          tooltip="Smart Crop"
-          onClick={() => handleAction('resize', { size: '800x600' })}
-          className="hover:bg-amber-500/20 hover:text-amber-500 transition-colors"
+          tooltip="Smart Social Crop"
+          disabled={!activeAsset || isProcessingLocal}
+          onClick={() => handleAction('resize', { size: '1080x1350' })}
+          className={`${btnClass} text-amber-500 hover:bg-amber-500/10`}
         />
         <IconButton
-          icon={Layers}
-          tooltip="Rotate 90°"
-          onClick={() => handleAction('rotate', { angle: 90 })}
-          className="hover:bg-indigo-500/20 hover:text-indigo-500 transition-colors"
+          icon={RefreshCcw}
+          tooltip="Flip Horizontal"
+          disabled={!activeAsset || isProcessingLocal}
+          onClick={() => handleAction('flip', { direction: 'horizontal' })}
+          className={`${btnClass} text-indigo-400 hover:bg-indigo-400/10`}
         />
       </div>
 
-      {/* --- Section 2: AI Filters --- */}
-      <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl">
+      {/* --- Section 2: AI Enhancements --- */}
+      <div className="flex items-center gap-1.5 px-2 border-r border-white/5">
         <IconButton
           icon={Wand2}
-          tooltip="Grayscale B&W"
-          onClick={() => handleAction('filter', { filterType: 'grayscale' })}
-          className="hover:bg-blue-500/20 hover:text-blue-500"
+          tooltip="AI Auto-Enhance"
+          disabled={!activeAsset || isProcessingLocal}
+          onClick={() => handleAction('filter', { filterType: 'auto' })}
+          className={`${btnClass} text-blue-400 hover:bg-blue-400/10`}
         />
         <IconButton
           icon={Sparkles}
-          tooltip="Vintage Aesthetic"
-          onClick={() => handleAction('filter', { filterType: 'vintage' })}
-          className="hover:bg-purple-500/20 hover:text-purple-500"
+          tooltip="Neural Style Transfer"
+          disabled={!activeAsset || isProcessingLocal}
+          onClick={() => handleAction('filter', { filterType: 'cinematic' })}
+          className={`${btnClass} text-purple-400 hover:bg-purple-400/10`}
         />
       </div>
 
-      {/* --- Section 3: Smart Actions --- */}
-      <div className="flex items-center gap-1 bg-black/20 p-1 rounded-xl">
+      {/* --- Section 3: Power Tools --- */}
+      <div className="flex items-center gap-1.5 px-2">
+        <IconButton
+          icon={Flame}
+          tooltip="HDR Upscale"
+          disabled={!activeAsset || isProcessingLocal}
+          onClick={() => handleAction('resize', { size: '3840x2160' })}
+          className={`${btnClass} text-rose-500 hover:bg-rose-500/10`}
+        />
         <IconButton
           icon={Plus}
-          tooltip="Merge Timeline"
+          tooltip="Neural Merge"
+          disabled={layers.length < 2 || isProcessingLocal}
           onClick={() => {
-            const videoNames = layers.map(l => {
-              const asset = assets.find(a => a.id === l.assetId);
-              return asset?.url;
-            }).filter(Boolean);
-            if (videoNames.length >= 2) handleAction('merge', { videoUrls: videoNames });
+            const videoUrls = layers
+              .map(l => assets.find(a => a.id === l.assetId)?.url)
+              .filter(Boolean);
+            handleAction('merge', { videoUrls });
           }}
-          className="text-emerald-500 hover:bg-emerald-500/20"
-        />
-        <IconButton
-          icon={MoveDiagonal}
-          tooltip="Fit to 1080p"
-          onClick={() => handleAction('resize', { size: '1920x1080' })}
-          className="hover:bg-rose-500/20 hover:text-rose-500"
+          className={`${btnClass} text-emerald-400 hover:bg-emerald-400/10`}
         />
       </div>
 
-      {/* --- Status Indicator --- */}
-      <div className="px-3 py-1 bg-white/5 rounded-lg border border-white/5 flex items-center gap-2">
-        <div className={`w-1.5 h-1.5 rounded-full ${selectedLayerId ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}`}></div>
-        <span className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold">
-          {selectedLayerId ? 'Asset Ready' : 'No Selection'}
-        </span>
+      {/* --- Node Status Badge --- */}
+      <div className="ml-2 pl-4 border-l border-white/5 flex flex-col items-start">
+        <div className="flex items-center gap-2">
+          <div className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${selectedLayerId ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-zinc-700'}`}></div>
+          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">
+            {selectedLayerId ? 'Asset Linked' : 'Offline'}
+          </span>
+        </div>
+        <span className="text-[7px] font-bold text-zinc-700 uppercase mt-0.5">Neural Engine 3.0</span>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

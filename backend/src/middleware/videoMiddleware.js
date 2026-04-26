@@ -10,7 +10,7 @@ const validateVideoSource = (req, res, next) => {
             return res.status(400).json({ error: "Merge ke liye kam se kam 2 files (videoUrls array) chahiye!" });
         }
 
-        // Check karo ki array ki saare files exist karti hain ya nahi
+        // Check karo ki array ki saare files exist karti hain ya nahiī
         for (const file of videoUrls) {
             const uploadsPath = path.join(__dirname, '../../uploads', file);
             const tempPath = path.join(__dirname, '../../temp', file);
@@ -20,7 +20,7 @@ const validateVideoSource = (req, res, next) => {
         }
         return next();
     }
-
+īī
     // 2. Baaki saare routes ke liye Single File validate karo
     if (!videoUrl) {
         return res.status(400).json({ error: "Filename (videoUrl) missing hai!" });

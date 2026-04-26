@@ -7,7 +7,7 @@ const Navbar = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   // Redux se layers le rahe hain
-  const { layers } = useSelector((state) => state.project);
+  const { layers, assets, selectedLayerId } = useSelector((state) => state.project);
 
   const handleNameChange = (e) => {
     setProjectName(e.target.value);
@@ -20,40 +20,53 @@ const Navbar = () => {
     }
   };
 
-  // 🔥 EXPORT FUNCTION: Dynamic Name ke saath
+  // 🔥 EXPORT FUNCTION: Download the selected media file with edited source
   const handleExport = async () => {
-    // 1. Validation check
     if (!projectName || projectName.trim() === "") {
-      alert("Please enter a project name first!");
+      alert("Please name your masterpiece first! ✍️");
       return;
     }
 
-    try {
-      // 🚩 Console log update (Sirf hamari pehchan ke liye)
-      console.log("📤 Exporting to Firestore:", { projectName, layersCount: layers.length });
+    if (layers.length === 0) {
+      alert("Timeline is empty! Add some clips to export.");
+      return;
+    }
 
-      const response = await fetch(`${API_URL}/video/export`, {
+    // Loading state shuru karo (Redux use karke)
+    // dispatch(setIsProcessing(true)); 
+
+    try {
+      const token = localStorage.getItem('googleDriveToken');
+      const filename = `${projectName.replace(/\s+/g, '_')}_export.mp4`;
+
+      const response = await fetch(`${API_URL}/api/video/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          projectName: projectName,
-          layers: layers,
-          exportedAt: new Date().toISOString()
+          projectName,
+          layers,  // Sending whole timeline
+          assets,  // Sending all asset sources
+          token
         })
       });
 
-      const data = await response.json();
+      if (!response.ok) throw new Error('Neural Rendering Failed');
 
-      if (data.success) {
-        // ✨ Success Alert: Ab ye Firestore ki Document ID dikhayega
-        alert(`✅ Project "${projectName}" saved to Cloud Firestore!\nDocument ID: ${data.details.dbId}`);
-        console.log("🔥 Firestore Doc ID:", data.details.dbId);
-      } else {
-        alert("❌ Export Failed: " + (data.error || "Unknown error"));
-      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+
+      alert("🎬 Mission Accomplished! Video exported to your System.");
     } catch (error) {
-      console.error("Export failed:", error);
-      alert("❌ Server connection lost! Make sure backend is live.");
+      console.error("Export Error:", error);
+      alert("❌ Export Crashed! Check if backend is running FFmpeg.");
+    } finally {
+      // dispatch(setIsProcessing(false));
     }
   };
 
