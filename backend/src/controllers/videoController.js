@@ -177,18 +177,40 @@ const resolveMediaInput = async (sourceUrl, token) => {
 
     if (sourceUrl.includes('/api/video/stream/')) {
         const fileId = sourceUrl.split('/stream/')[1].split('?')[0];
-        return await getDriveStream(fileId, token);
+        const stream = await getDriveStream(fileId, token);
+        const tempPath = path.join(__dirname, '../../temp', `${fileId}_${Date.now()}.mp4`);
+        fs.mkdirSync(path.dirname(tempPath), { recursive: true });
+        const writeStream = fs.createWriteStream(tempPath);
+        stream.pipe(writeStream);
+        await new Promise((resolve, reject) => {
+            writeStream.on('finish', resolve);
+            writeStream.on('error', reject);
+            stream.on('error', reject);
+        });
+        return tempPath;
     }
 
     if (sourceUrl.includes('drive.google.com')) {
         const fileId = sourceUrl.split('/d/')[1]?.split('/')[0];
-        return await getDriveStream(fileId, token);
+        if (!fileId) throw new Error('Invalid Google Drive URL');
+        const stream = await getDriveStream(fileId, token);
+        const tempPath = path.join(__dirname, '../../temp', `${fileId}_${Date.now()}.mp4`);
+        fs.mkdirSync(path.dirname(tempPath), { recursive: true });
+        const writeStream = fs.createWriteStream(tempPath);
+        stream.pipe(writeStream);
+        await new Promise((resolve, reject) => {
+            writeStream.on('finish', resolve);
+            writeStream.on('error', reject);
+            stream.on('error', reject);
+        });
+        return tempPath;
     }
 
     if (sourceUrl.startsWith('http')) {
         return sourceUrl;
     }
 
+    // Assume it's a local file path
     return sourceUrl;
 };
 
@@ -207,6 +229,8 @@ const mapCssFilterToFFmpeg = (filter) => {
 };
 
 exports.exportProject = async (req, res) => {
+    const tempFiles = []; // Track temp files for cleanup
+
     try {
         const { projectName, selectedLayerId, layers, assets, filename: requestedFilename, token } = req.body;
         const filename = requestedFilename || `${(projectName || 'export').replace(/\s+/g, '_')}_export.mp4`;
@@ -222,6 +246,7 @@ exports.exportProject = async (req, res) => {
         const layerAsset = assets.find(a => a.id === exportLayer.assetId);
         const sourceUrl = layerAsset?.url || exportLayer.url;
         const mainInput = await resolveMediaInput(sourceUrl, authToken);
+        if (mainInput.includes('/temp/')) tempFiles.push(mainInput);
 
         // 📝 Text & 🎵 Audio layers filter karo
         const textLayers = layers.filter(l => l.type === 'text');
@@ -272,6 +297,7 @@ exports.exportProject = async (req, res) => {
 
         if (!isAudioExport && audioLayer && exportLayer.type !== 'audio') {
             const audioInput = await resolveMediaInput(audioLayer.url, authToken);
+            if (audioInput.includes('/temp/')) tempFiles.push(audioInput);
             exportCommand = exportCommand.input(audioInput).outputOptions(['-map 0:v:0', '-map 1:a:0', '-shortest']);
         }
 
@@ -297,16 +323,44 @@ exports.exportProject = async (req, res) => {
                 ]);
         }
 
+        const cleanupTempFiles = () => {
+            tempFiles.forEach(filePath => {
+                try {
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                        console.log(`🗑️ Cleaned up temp file: ${filePath}`);
+                    }
+                } catch (err) {
+                    console.error(`❌ Failed to delete temp file ${filePath}:`, err.message);
+                }
+            });
+        };
+
         exportCommand
             .on('start', (cmd) => console.log("🚀 Exporting with:", cmd))
             .on('error', (err) => {
                 console.error('❌ FFmpeg Export Failed:', err.message);
+                cleanupTempFiles();
                 if (!res.headersSent) res.status(500).json({ error: "Rendering crashed" });
+            })
+            .on('end', () => {
+                console.log("✅ Export completed successfully");
+                cleanupTempFiles();
             })
             .pipe(res, { end: true });
 
     } catch (error) {
         console.error('❌ Neural Export Error:', error.message);
+        // Cleanup temp files on error
+        tempFiles.forEach(filePath => {
+            try {
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            } catch (err) {
+                console.error(`❌ Failed to delete temp file ${filePath}:`, err.message);
+            }
+        });
         if (!res.headersSent) res.status(500).json({ error: error.message });
     }
 };
