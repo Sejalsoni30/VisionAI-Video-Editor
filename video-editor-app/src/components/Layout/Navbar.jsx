@@ -44,13 +44,17 @@ const Navbar = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectName,
+          filename,
           layers,  // Sending whole timeline
           assets,  // Sending all asset sources
           token
         })
       });
 
-      if (!response.ok) throw new Error('Neural Rendering Failed');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Neural Rendering Failed: ${errorText}`);
+      }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);

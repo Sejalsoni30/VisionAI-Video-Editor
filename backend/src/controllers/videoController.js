@@ -208,14 +208,15 @@ const mapCssFilterToFFmpeg = (filter) => {
 
 exports.exportProject = async (req, res) => {
     try {
-        const { projectName, selectedLayerId, layers, assets, filename, token } = req.body;
+        const { projectName, selectedLayerId, layers, assets, filename: requestedFilename, token } = req.body;
+        const filename = requestedFilename || `${(projectName || 'export').replace(/\s+/g, '_')}_export.mp4`;
         const authToken = token || req.headers.authorization?.split(' ')[1];
 
         if (!layers || !layers.length) return res.status(400).json({ error: 'No layers found' });
         if (!authToken) return res.status(400).json({ error: 'Authentication token missing' });
 
         // 🎯 Target layer identify karo
-        const exportLayer = layers.find(l => l.id === selectedLayerId) || layers.find(l => l.type === 'video' || l.type === 'image');
+        const exportLayer = layers.find(l => l.id === selectedLayerId) || layers.find(l => ['video', 'image', 'audio'].includes(l.type));
         if (!exportLayer) return res.status(400).json({ error: 'Nothing to export' });
 
         const layerAsset = assets.find(a => a.id === exportLayer.assetId);
@@ -256,28 +257,45 @@ exports.exportProject = async (req, res) => {
         });
 
         // 🎥 Start FFmpeg Command
-        let command = ffmpeg(mainInput);
+        const isAudioExport = exportLayer.type === 'audio';
+        const isImageExport = exportLayer.type === 'image' && !audioLayer;
+        const contentType = isAudioExport ? 'audio/mpeg' : isImageExport ? 'image/png' : 'video/mp4';
+        const formatType = isAudioExport ? 'mp3' : isImageExport ? 'png' : 'mp4';
+        const finalFilename = filename.endsWith(`.${formatType}`) ? filename : `${filename}.${formatType}`;
 
-        // 📎 Add Audio if exists
-        if (audioLayer) {
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${finalFilename}"`);
+
+        let exportCommand = ffmpeg(mainInput);
+
+        if (!isAudioExport && audioLayer && exportLayer.type !== 'audio') {
             const audioInput = await resolveMediaInput(audioLayer.url, authToken);
-            command = command.input(audioInput).outputOptions(['-map 0:v:0', '-map 1:a:0', '-shortest']);
+            exportCommand = exportCommand.input(audioInput).outputOptions(['-map 0:v:0', '-map 1:a:0', '-shortest']);
         }
 
-        // 🛠️ Final Output Settings
-        res.setHeader('Content-Type', exportLayer.type === 'image' && !audioLayer ? 'image/png' : 'video/mp4');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        if (isAudioExport) {
+            exportCommand = exportCommand
+                .noVideo()
+                .audioCodec('libmp3lame')
+                .format('mp3');
+        } else if (isImageExport) {
+            exportCommand = exportCommand
+                .frames(1)
+                .format('png');
+        } else {
+            exportCommand = exportCommand
+                .videoFilters(filters)
+                .videoCodec('libx264')
+                .audioCodec('aac')
+                .format('mp4')
+                .outputOptions([
+                    '-pix_fmt yuv420p',
+                    '-preset ultrafast',
+                    '-movflags frag_keyframe+empty_moov+faststart'
+                ]);
+        }
 
-        command
-            .videoFilters(filters)
-            .videoCodec('libx264')
-            .audioCodec('aac')
-            .format('mp4')
-            .outputOptions([
-                '-pix_fmt yuv420p', // standard for playback compatibility
-                '-preset ultrafast',
-                '-movflags frag_keyframe+empty_moov+faststart'
-            ])
+        exportCommand
             .on('start', (cmd) => console.log("🚀 Exporting with:", cmd))
             .on('error', (err) => {
                 console.error('❌ FFmpeg Export Failed:', err.message);
