@@ -239,6 +239,8 @@ exports.exportProject = async (req, res) => {
             const start = text.startTime || 0;
             const end = start + (text.duration || 5);
             const hexColor = (text.style?.color || '#ffffff').replace('#', '0x');
+            const offsetX = text.style?.x || 0;
+            const offsetY = text.style?.y || 0;
             
             filters.push({
                 filter: 'drawtext',
@@ -246,8 +248,8 @@ exports.exportProject = async (req, res) => {
                     text: text.content || '',
                     fontcolor: hexColor,
                     fontsize: text.style?.fontSize || 32,
-                    x: `(w-text_w)/2 + ${text.style?.x || 0}`, // Dynamic centering + offset
-                    y: `(h-text_h)/2 + ${text.style?.y || 0}`,
+                    x: `(w-text_w)/2${offsetX >= 0 ? '+' : ''}${offsetX}`, // No spaces in expression
+                    y: `(h-text_h)/2${offsetY >= 0 ? '+' : ''}${offsetY}`,
                     enable: `between(t,${start},${end})`,
                     shadowcolor: 'black',
                     shadowx: 2,
