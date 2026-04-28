@@ -5,19 +5,16 @@ import { updateCurrentTime, setIsPlaying } from '../../store/projectSlice';
 
 const Controls = () => {
   const dispatch = useDispatch();
-  
-  // 1. Redux State
   const { currentTime, isPlaying, duration } = useSelector((state) => state.project);
 
-  // 🕒 Professional Time Format (00:00:00)
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
+  const formatTime = (seconds = 0) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    const frames = Math.floor((seconds % 1) * 30);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}:${frames.toString().padStart(2, '0')}`;
+    const parts = [mins, secs].map((value) => value.toString().padStart(2, '0'));
+    return hrs > 0 ? `${hrs.toString().padStart(2, '0')}:${parts.join(':')}` : `00:${parts.join(':')}`;
   };
 
-  // 🕹️ Control Handlers (Redux Based)
   const handlePlayPause = () => {
     dispatch(setIsPlaying(!isPlaying));
   };
@@ -27,7 +24,6 @@ const Controls = () => {
   };
 
   const handleSkipBack = () => {
-    // Agar 0 se piche jaye toh 0 par hi ruke
     dispatch(updateCurrentTime(Math.max(0, currentTime - 5)));
   };
 
@@ -36,57 +32,56 @@ const Controls = () => {
     dispatch(setIsPlaying(false));
   };
 
+  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+
   return (
-    <div className="absolute top-4 right-4 w-48 h-20 bg-[#0c0c0e]/90 backdrop-blur-xl border border-white/5 rounded-2xl p-3 shadow-2xl z-50">
-      
-      {/* ⏱️ Time Display */}
-      <div className="flex items-center justify-center mb-2">
-        <span className="text-sm font-mono text-blue-500 font-bold tracking-tighter bg-blue-500/5 px-2 py-1 rounded border border-blue-500/10">
-          {formatTime(currentTime)}
-        </span>
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[22rem] bg-slate-950/85 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-4 shadow-[0_25px_60px_-20px_rgba(0,0,0,0.8)] z-50">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Preview</div>
+          <div className="text-sm font-medium text-white">{formatTime(currentTime)} / {formatTime(duration)}</div>
+        </div>
+
+        <button
+          onClick={handleReset}
+          className="flex items-center justify-center w-9 h-9 rounded-2xl border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 transition"
+          title="Reset playhead"
+        >
+          <RotateCcw size={16} />
+        </button>
       </div>
 
-      {/* 🕹️ Controls Row */}
-      <div className="flex items-center justify-center gap-2">
-        
-        {/* Reset / Skip Back */}
-        <RotateCcw 
-            size={16} 
-            className="text-zinc-600 cursor-pointer hover:text-white transition-all active:scale-90"
-            onClick={handleReset}
-            title="Reset Playhead"
-        />
-        
-        {/* Play/Pause Main Node */}
-        <button 
-          onClick={handlePlayPause}
-          className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black hover:scale-110 hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] active:scale-90 transition-all shadow-2xl"
+      <div className="flex items-center justify-center gap-3 mb-3">
+        <button
+          onClick={handleSkipBack}
+          className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition"
+          title="Rewind 5s"
         >
-          {isPlaying ? (
-            <Pause size={20} fill="black" strokeWidth={0} />
-          ) : (
-            <Play size={20} fill="black" className="ml-0.5" strokeWidth={0} />
-          )}
+          <SkipBack size={18} />
         </button>
 
-        {/* Skip Forward */}
-        <SkipForward 
-            size={16} 
-            className="text-zinc-400 cursor-pointer hover:text-blue-500 transition-all active:scale-90"
-            onClick={handleSkipForward}
+        <button
+          onClick={handlePlayPause}
+          className="w-14 h-14 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-[0_20px_40px_-20px_rgba(255,255,255,0.7)] transition hover:scale-[1.04] active:scale-95"
+        >
+          {isPlaying ? <Pause size={22} /> : <Play size={22} />}
+        </button>
+
+        <button
+          onClick={handleSkipForward}
+          className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition"
+          title="Forward 5s"
+        >
+          <SkipForward size={18} />
+        </button>
+      </div>
+
+      <div className="h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-500 via-sky-400 to-cyan-400 shadow-[0_0_20px_rgba(56,189,248,0.45)]"
+          style={{ width: `${progress}%` }}
         />
       </div>
-
-      {/* 🔊 Volume Bar */}
-      <div className="mt-2 flex items-center justify-center">
-        <div className="w-20 h-1 bg-zinc-900 rounded-full overflow-hidden border border-white/5 relative">
-          <div 
-            className="absolute left-0 top-0 h-full bg-blue-600/40 shadow-[0_0_10px_rgba(37,99,235,0.5)]"
-            style={{ width: '75%' }} // Static volume for UI look
-          ></div>
-        </div>
-      </div>
-
     </div>
   );
 };

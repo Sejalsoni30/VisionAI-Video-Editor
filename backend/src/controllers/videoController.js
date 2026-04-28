@@ -293,6 +293,11 @@ exports.exportProject = async (req, res) => {
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Disposition', `attachment; filename="${finalFilename}"`);
 
+        if (!isAudioExport && !isImageExport) {
+            // Ensure exported video dimensions are even, otherwise some players fail to decode.
+            filters.unshift('scale=trunc(iw/2)*2:trunc(ih/2)*2');
+        }
+
         let exportCommand = ffmpeg(mainInput);
 
         if (!isAudioExport && audioLayer && exportLayer.type !== 'audio') {
@@ -305,6 +310,7 @@ exports.exportProject = async (req, res) => {
             exportCommand = exportCommand
                 .noVideo()
                 .audioCodec('libmp3lame')
+                .audioBitrate('128k')
                 .format('mp3');
         } else if (isImageExport) {
             exportCommand = exportCommand
@@ -315,11 +321,16 @@ exports.exportProject = async (req, res) => {
                 .videoFilters(filters)
                 .videoCodec('libx264')
                 .audioCodec('aac')
+                .audioBitrate('128k')
                 .format('mp4')
                 .outputOptions([
                     '-pix_fmt yuv420p',
-                    '-preset ultrafast',
-                    '-movflags frag_keyframe+empty_moov+faststart'
+                    '-profile:v baseline',
+                    '-level 3.0',
+                    '-crf 22',
+                    '-preset medium',
+                    '-movflags +faststart',
+                    '-max_muxing_queue_size 1024'
                 ]);
         }
 
