@@ -266,7 +266,7 @@ exports.exportProject = async (req, res) => {
             const hexColor = (text.style?.color || '#ffffff').replace('#', '0x');
             const offsetX = text.style?.x || 0;
             const offsetY = text.style?.y || 0;
-            
+
             filters.push({
                 filter: 'drawtext',
                 options: {
@@ -282,10 +282,10 @@ exports.exportProject = async (req, res) => {
                 }
             });
         });
-
+        const requestedType = req.body.exportType || 'mp4'; // Navbar se aane wala 'mp3', 'png'
         // 🎥 Start FFmpeg Command
-        const isAudioExport = exportLayer.type === 'audio';
-        const isImageExport = exportLayer.type === 'image' && !audioLayer;
+        const isAudioExport = requestedType === 'mp3';
+        const isImageExport = requestedType === 'png';
         const contentType = isAudioExport ? 'audio/mpeg' : isImageExport ? 'image/png' : 'video/mp4';
         const formatType = isAudioExport ? 'mp3' : isImageExport ? 'png' : 'mp4';
         const finalFilename = filename.endsWith(`.${formatType}`) ? filename : `${filename}.${formatType}`;
@@ -325,13 +325,10 @@ exports.exportProject = async (req, res) => {
                 .format('mp4')
                 .outputOptions([
                     '-pix_fmt yuv420p',
-                    '-profile:v baseline',
-                    '-level 3.0',
-                    '-crf 22',
-                    '-preset medium',
-                    '-movflags +faststart',
-                    '-max_muxing_queue_size 1024'
-                ]);
+                    '-preset ultrafast', // Render ke liye fast hona zaroori hai
+                    '-movflags frag_keyframe+empty_moov+default_base_moof',
+                    '-crf 23'
+                ])
         }
 
         const cleanupTempFiles = () => {

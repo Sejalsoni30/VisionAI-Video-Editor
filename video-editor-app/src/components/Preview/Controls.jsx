@@ -35,26 +35,26 @@ const Controls = () => {
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[22rem] bg-slate-950/85 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-4 shadow-[0_25px_60px_-20px_rgba(0,0,0,0.8)] z-50">
+    <div className="absolute top-8 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[24rem] bg-[#111827]/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-4 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] z-50">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div>
           <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Preview</div>
-          <div className="text-sm font-medium text-white">{formatTime(currentTime)} / {formatTime(duration)}</div>
+          <div className="text-sm font-semibold text-white">{formatTime(currentTime)} / {formatTime(duration)}</div>
         </div>
 
         <button
           onClick={handleReset}
-          className="flex items-center justify-center w-9 h-9 rounded-2xl border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 transition"
+          className="flex items-center justify-center w-10 h-10 rounded-3xl border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 transition"
           title="Reset playhead"
         >
           <RotateCcw size={16} />
         </button>
       </div>
 
-      <div className="flex items-center justify-center gap-3 mb-3">
+      <div className="flex items-center justify-center gap-4 mb-3">
         <button
           onClick={handleSkipBack}
-          className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition"
+          className="w-11 h-11 rounded-3xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition"
           title="Rewind 5s"
         >
           <SkipBack size={18} />
@@ -62,23 +62,24 @@ const Controls = () => {
 
         <button
           onClick={handlePlayPause}
-          className="w-14 h-14 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-[0_20px_40px_-20px_rgba(255,255,255,0.7)] transition hover:scale-[1.04] active:scale-95"
+          className="w-16 h-16 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-[0_20px_40px_-20px_rgba(255,255,255,0.8)] transition hover:scale-[1.05] active:scale-95"
+          title={isPlaying ? 'Pause' : 'Play'}
         >
-          {isPlaying ? <Pause size={22} /> : <Play size={22} />}
+          {isPlaying ? <Pause size={24} /> : <Play size={24} />}
         </button>
 
         <button
           onClick={handleSkipForward}
-          className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition"
+          className="w-11 h-11 rounded-3xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition"
           title="Forward 5s"
         >
           <SkipForward size={18} />
         </button>
       </div>
 
-      <div className="h-2 rounded-full bg-white/10 overflow-hidden border border-white/10">
+      <div className="rounded-full bg-white/10 overflow-hidden border border-white/10 h-2">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-500 via-sky-400 to-cyan-400 shadow-[0_0_20px_rgba(56,189,248,0.45)]"
+          className="h-full rounded-full bg-gradient-to-r from-blue-500 via-sky-400 to-cyan-400 shadow-[0_0_20px_rgba(56,189,248,0.45)] transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
       </div>
