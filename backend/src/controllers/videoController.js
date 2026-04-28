@@ -327,7 +327,10 @@ exports.exportProject = async (req, res) => {
                     '-pix_fmt yuv420p',
                     '-preset ultrafast', // Render ke liye fast hona zaroori hai
                     '-movflags frag_keyframe+empty_moov+default_base_moof',
-                    '-crf 23'
+                    '-fflags +genpts',
+                    '-avoid_negative_ts make_zero',
+                    '-crf 23',
+                    '-threads 1'
                 ])
         }
 
@@ -344,8 +347,14 @@ exports.exportProject = async (req, res) => {
             });
         };
 
+        const outputPath = path.join(__dirname, '../../temp', `${projectName.replace(/\s+/g, '_')}_${Date.now()}.${formatType}`);
+        fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+        tempFiles.push(outputPath);
+
         exportCommand
+            .output(outputPath)
             .on('start', (cmd) => console.log("🚀 Exporting with:", cmd))
+            .on('stderr', (stderrLine) => console.log('FFmpeg:', stderrLine))
             .on('error', (err) => {
                 console.error('❌ FFmpeg Export Failed:', err.message);
                 cleanupTempFiles();
@@ -353,9 +362,21 @@ exports.exportProject = async (req, res) => {
             })
             .on('end', () => {
                 console.log("✅ Export completed successfully");
-                cleanupTempFiles();
+                if (!res.headersSent) {
+                    res.download(outputPath, finalFilename, (downloadError) => {
+                        if (downloadError) {
+                            console.error('❌ Download error:', downloadError.message);
+                            if (!res.headersSent) {
+                                res.status(500).json({ error: 'Failed to send file' });
+                            }
+                        }
+                        cleanupTempFiles();
+                    });
+                } else {
+                    cleanupTempFiles();
+                }
             })
-            .pipe(res, { end: true });
+            .run();
 
     } catch (error) {
         console.error('❌ Neural Export Error:', error.message);

@@ -40,7 +40,8 @@ const VideoEffectsPanel = () => {
   return (
     <div className="flex flex-col h-full bg-[#0c0c0e]">
       <div className="p-4 border-b border-white/5">
-        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Video Filters</h3>
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Media Filters</h3>
+        <p className="text-[9px] text-zinc-400 mt-2">Apply effects to the selected image or video layer.</p>
       </div>
       
       <div className="p-4 grid grid-cols-3 gap-3">
