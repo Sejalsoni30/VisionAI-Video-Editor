@@ -1,37 +1,44 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { updateCurrentTime } from '../../store/projectSlice';
-import { API_URL } from '../../config'; // 👈 Ensure ye path sahi ho
+import { API_URL } from '../../config';
 
 const PreviewCanvas = () => {
   const videoRefs = useRef({});
   const audioRefs = useRef({});
+  const urlCache = useRef({}); // 💾 Cache URLs to prevent re-generation
   const dispatch = useDispatch();
 
   const { layers, assets, currentTime, isPlaying, isProcessing, selectedLayerId } = useSelector((state) => state.project);
 
-  // 🚀 1. Helper Function: Drive Link to Proxy Stream
-  const getStreamUrl = (url, assetId) => {
+  // 🚀 1. Optimized Helper: URL Generation with Caching
+  const getStreamUrl = useCallback((url, assetId) => {
     if (!url) return "";
-    if (url.startsWith('blob:')) return url; // Edited files ke liye
-
-    if (!url.includes('://') && url.length > 10) {
-      // Bare file ID, backend proxy use karo
-      const token = localStorage.getItem('googleDriveToken');
-      return `${API_URL}/api/video/stream/${url}?token=${token}`;
+    
+    // Create cache key
+    const cacheKey = `${url}_${assetId}`;
+    if (urlCache.current[cacheKey]) {
+      return urlCache.current[cacheKey];
     }
 
-    if (url.includes('drive.google.com') || url.includes('googleusercontent.com')) {
-      // Drive ID nikalna
+    if (url.startsWith('blob:')) return url; // Local files
+
+    let streamUrl = url;
+    
+    if (!url.includes('://') && url.length > 10) {
+      const token = localStorage.getItem('googleDriveToken');
+      streamUrl = `${API_URL}/api/video/stream/${url}?token=${token}&cache=${Date.now()}`;
+    } else if (url.includes('drive.google.com') || url.includes('googleusercontent.com')) {
       const fileId = url.split('/d/')[1]?.split('/')[0] || assetId;
       const token = localStorage.getItem('googleDriveToken');
-      // Backend ke raste se file stream karna (CORS Bypass)
-      return `${API_URL}/api/video/stream/${fileId}?token=${token}`;
+      streamUrl = `${API_URL}/api/video/stream/${fileId}?token=${token}&cache=${Date.now()}`;
     }
-    return url;
-  };
+
+    urlCache.current[cacheKey] = streamUrl;
+    return streamUrl;
+  }, []);
 
   const renderedLayers = useMemo(() => {
     return layers.map(layer => {
@@ -44,22 +51,35 @@ const PreviewCanvas = () => {
     return renderedLayers.find(layer => layer.id === selectedLayerId) || null;
   }, [renderedLayers, selectedLayerId]);
 
-  // --- 🔄 Sync Engine ---
+  // --- 🔄 Optimized Sync Engine ---
   useEffect(() => {
     renderedLayers.forEach(layer => {
       if (layer.type === 'video') {
         const video = videoRefs.current[layer.id];
         if (!video) return;
 
-        const isVisible = currentTime >= layer.startTime && currentTime <= (layer.startTime + (layer.duration || 0));
+        const layerEndTime = layer.startTime + (layer.duration || 0);
+        const isVisible = currentTime >= layer.startTime && currentTime <= layerEndTime;
+        const isNearby = currentTime >= (layer.startTime - 2) && currentTime <= (layerEndTime + 2);
+
+        // 📺 Better buffering: preload nearby videos
+        if (isNearby && !video.src) {
+          video.load();
+        }
 
         if (isVisible) {
           const relativeTime = Math.max(0, currentTime - layer.startTime);
-          if (Math.abs(video.currentTime - relativeTime) > 0.1) {
+          
+          // 🎯 Smoother seeking: only seek if difference > 0.5s
+          if (Math.abs(video.currentTime - relativeTime) > 0.5) {
             video.currentTime = relativeTime;
           }
+          
           if (isPlaying) {
-            video.play().catch(() => {}); // Silent catch for autoplay blocks
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(() => {}); // Silent catch for autoplay blocks
+            }
           } else {
             video.pause();
           }
@@ -72,7 +92,8 @@ const PreviewCanvas = () => {
         const audio = audioRefs.current[layer.id];
         if (!audio) return;
 
-        const isVisible = currentTime >= layer.startTime && currentTime <= (layer.startTime + (layer.duration || 0));
+        const layerEndTime = layer.startTime + (layer.duration || 0);
+        const isVisible = currentTime >= layer.startTime && currentTime <= layerEndTime;
         const volume = (layer.style?.volume ?? 100) / 100;
         audio.volume = volume;
 
@@ -81,7 +102,10 @@ const PreviewCanvas = () => {
           if (Math.abs(audio.currentTime - relativeTime) > 0.3) {
             audio.currentTime = relativeTime;
           }
-          audio.play().catch(() => {});
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(() => {});
+          }
         } else {
           audio.pause();
         }
@@ -96,30 +120,35 @@ const PreviewCanvas = () => {
       <div className="relative aspect-video w-full max-w-[1100px] bg-black rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/5 ring-1 ring-white/10">
         
         {renderedLayers.map((layer) => {
-          const isVisible = currentTime >= layer.startTime && currentTime <= (layer.startTime + (layer.duration || 0.1));
+          const layerEndTime = layer.startTime + (layer.duration || 0.1);
+          const isVisible = currentTime >= layer.startTime && currentTime <= layerEndTime;
+          const isNearby = currentTime >= (layer.startTime - 3) && currentTime <= (layerEndTime + 3);
           const isSelected = selectedLayerId === layer.id;
-          const showLayer = isVisible || isSelected || (layer.type === 'video' || layer.type === 'image'); // Always show video/image layers
+          
+          // 🎯 Lazy load: only render if visible or selected or nearby
+          const shouldRender = isNearby || isSelected;
 
-          if (!showLayer) return null;
+          if (!shouldRender) return null;
 
           if (layer.type === 'video') {
             return (
               <video
                 key={layer.id}
                 ref={el => videoRefs.current[layer.id] = el}
-                src={getStreamUrl(layer.renderUrl, layer.assetId)} // 👈 Proxy call
+                src={getStreamUrl(layer.renderUrl, layer.assetId)}
                 playsInline
-                preload="auto"
+                preload={isNearby ? "auto" : "none"}
                 autoPlay={isPlaying && isSelected}
                 crossOrigin="anonymous"
                 className="absolute inset-0 w-full h-full object-contain"
                 style={{ 
                   opacity: layer.style?.opacity ?? 1,
                   zIndex: isSelected ? 20 : 10,
-                  display: showLayer ? 'block' : 'none',
+                  display: isVisible ? 'block' : 'none',
                   transform: `scale(${layer.style?.scale ?? 1}) rotate(${layer.style?.rotation ?? 0}deg) translate(${layer.style?.x ?? 0}px, ${layer.style?.y ?? 0}px)`,
                   transformOrigin: 'center center',
-                  filter: layer.style?.filter || 'none'
+                  filter: layer.style?.filter || 'none',
+                  willChange: isVisible ? 'contents' : 'auto'
                 }}
                 muted
               />
@@ -133,13 +162,15 @@ const PreviewCanvas = () => {
                 src={getStreamUrl(layer.renderUrl, layer.assetId)}
                 alt={layer.name || 'Selected image'}
                 className="absolute inset-0 w-full h-full object-contain"
+                loading={isNearby ? "eager" : "lazy"}
                 style={{
                   opacity: layer.style?.opacity ?? 1,
                   zIndex: isSelected ? 20 : 10,
-                  display: showLayer ? 'block' : 'none',
+                  display: isVisible ? 'block' : 'none',
                   transform: `scale(${layer.style?.scale ?? 1}) rotate(${layer.style?.rotation ?? 0}deg) translate(${layer.style?.x ?? 0}px, ${layer.style?.y ?? 0}px)`,
                   transformOrigin: 'center center',
-                  filter: layer.style?.filter || 'none'
+                  filter: layer.style?.filter || 'none',
+                  willChange: isVisible ? 'contents' : 'auto'
                 }}
               />
             );
@@ -151,7 +182,7 @@ const PreviewCanvas = () => {
                 <audio
                   ref={el => audioRefs.current[layer.id] = el}
                   src={getStreamUrl(layer.renderUrl, layer.assetId)}
-                  preload="auto"
+                  preload={isNearby ? "auto" : "none"}
                   className="hidden"
                 />
                 {isVisible && (

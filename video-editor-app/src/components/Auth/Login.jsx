@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { googleProvider, auth } from '../../firebase';
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     GoogleAuthProvider
 } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +16,29 @@ const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [popupBlocked, setPopupBlocked] = useState(false);
     const navigate = useNavigate();
+
+    // 🔧 Check for redirect result on mount
+    useEffect(() => {
+        const checkRedirect = async () => {
+            try {
+                const result = await getRedirectResult(auth);
+                if (result?.user) {
+                    const credential = GoogleAuthProvider.credentialFromResult(result);
+                    const token = credential?.accessToken;
+                    if (token) {
+                        localStorage.setItem('googleDriveToken', token);
+                        localStorage.setItem('userEmail', result.user.email);
+                        navigate('/terms');
+                    }
+                }
+            } catch (error) {
+                console.error('Redirect result error:', error);
+            }
+        };
+        checkRedirect();
+    }, [navigate]);
 
 
     // --- 1. Email Login (Direct Entry) ---
@@ -51,25 +75,45 @@ const Login = () => {
     // --- 2. Google Login (Terms Page Required) ---
     const handleGoogleLogin = async () => {
         setLoading(true);
+        setPopupBlocked(false);
         try {
-            // Drive Scopes add karna zaroori hai
-            googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
-            googleProvider.addScope('https://www.googleapis.com/auth/drive.readonly');
+            // 🔧 Try popup first
+            let result;
+            try {
+                result = await signInWithPopup(auth, googleProvider);
+            } catch (popupError) {
+                // 🔧 If popup is blocked, fall back to redirect
+                if (popupError.code === 'auth/popup-blocked' || 
+                    popupError.message?.includes('popup')) {
+                    console.log('📱 Popup blocked, using redirect...');
+                    setPopupBlocked(true);
+                    await signInWithRedirect(auth, googleProvider);
+                    return; // Redirect will handle navigation
+                }
+                throw popupError;
+            }
 
-            const result = await signInWithPopup(auth, googleProvider);
-            const credential = GoogleAuthProvider.credentialFromResult(result);
-            const token = credential.accessToken;
+            if (result?.user) {
+                const credential = GoogleAuthProvider.credentialFromResult(result);
+                const token = credential?.accessToken;
 
-            if (token) {
-                localStorage.setItem('googleDriveToken', token);
-                localStorage.setItem('userEmail', result.user.email);
-
-                // 🚀 AB TERMS OPEN HOGA: Kyunki user ne Drive ki access di hai
-                navigate('/terms');
+                if (token) {
+                    localStorage.setItem('googleDriveToken', token);
+                    localStorage.setItem('userEmail', result.user.email);
+                    navigate('/terms');
+                } else {
+                    alert('Could not retrieve Google Drive token. Please try again.');
+                }
             }
         } catch (error) {
             console.error("Auth System Error:", error);
-            alert("Connection Failed: " + error.message);
+            if (error.code === 'auth/popup-blocked') {
+                alert("Popup was blocked. Please allow popups or use 'AUTHORIZE' option.");
+            } else if (error.code === 'auth/operation-not-allowed') {
+                alert("Google sign-in is not enabled. Please contact support.");
+            } else {
+                alert("Connection Failed: " + error.message);
+            }
         } finally {
             setLoading(false);
         }

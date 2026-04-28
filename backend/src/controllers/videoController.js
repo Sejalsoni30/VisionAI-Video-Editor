@@ -408,10 +408,19 @@ exports.streamVideo = async (req, res) => {
         // Google Drive se stream mangwao
         const driveStream = await getDriveStream(fileId, token);
 
-        // Browser ko batao ki ye video hai
+        // 🎯 Optimize video streaming with proper headers
         res.setHeader('Content-Type', 'video/mp4');
         res.setHeader('Access-Control-Allow-Origin', '*');
-
+        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
+        
+        // 💾 Cache headers: browser should cache the video for 1 hour
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('ETag', `"${fileId}"`);
+        
+        // 🔄 Support range requests for faster seeking
+        res.setHeader('Accept-Ranges', 'bytes');
+        
         // Data ko seedha frontend video tag mein bhejo
         driveStream.pipe(res);
 
