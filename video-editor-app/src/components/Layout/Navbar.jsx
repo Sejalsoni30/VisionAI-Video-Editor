@@ -21,10 +21,49 @@ const Navbar = () => {
       return;
     }
 
-    setIsExporting(true); // Processing shuru
+    setIsExporting(true);
     try {
       const token = localStorage.getItem('googleDriveToken');
       const filename = `${projectName.replace(/\s+/g, '_')}_export.${format}`;
+
+      // Upload any blob-based assets to server temp storage first
+      const blobUrls = Array.from(new Set([
+        ...assets.filter(a => a.url?.startsWith('blob:')).map(a => a.url),
+        ...layers.filter(l => l.url?.startsWith('blob:')).map(l => l.url)
+      ]));
+
+      const urlToTempPath = {};
+      for (const blobUrl of blobUrls) {
+        const blobResponse = await fetch(blobUrl);
+        const blobData = await blobResponse.blob();
+        const formData = new FormData();
+        const asset = assets.find(a => a.url === blobUrl) || layers.find(l => l.url === blobUrl);
+        const extension = asset?.type === 'audio' ? 'mp3' : asset?.type === 'image' ? 'png' : 'mp4';
+        const filenameForUpload = `${asset?.id || 'blob_asset'}.${extension}`;
+        formData.append('file', blobData, filenameForUpload);
+
+        const uploadResponse = await fetch(`${API_URL}/api/video/upload-temp`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Blob upload failed');
+        }
+
+        const uploadData = await uploadResponse.json();
+        urlToTempPath[blobUrl] = uploadData.tempPath;
+      }
+
+      const exportAssets = assets.map((asset) => ({
+        ...asset,
+        url: asset.url.startsWith('blob:') ? urlToTempPath[asset.url] || asset.url : asset.url,
+      }));
+
+      const exportLayers = layers.map((layer) => ({
+        ...layer,
+        url: layer.url?.startsWith('blob:') ? urlToTempPath[layer.url] || layer.url : layer.url,
+      }));
 
       const response = await fetch(`${API_URL}/api/video/export`, {
         method: 'POST',
@@ -32,8 +71,8 @@ const Navbar = () => {
         body: JSON.stringify({
           projectName,
           filename,
-          layers,
-          assets,
+          layers: exportLayers,
+          assets: exportAssets,
           token,
           exportType: format
         })
@@ -55,7 +94,7 @@ const Navbar = () => {
       console.error("Export Error:", error);
       alert("Backend error! FFmpeg check karo Render par.");
     } finally {
-      setIsExporting(false); // Processing khatam
+      setIsExporting(false);
     }
   };
 

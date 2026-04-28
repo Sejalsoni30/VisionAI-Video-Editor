@@ -5,6 +5,7 @@ const multer = require('multer');
 
 // Temp storage setup
 const upload = multer({ dest: 'uploads/' });
+const uploadMemory = multer({ storage: multer.memoryStorage() });
 
 // --- 🎬 1. STREAMING & ASSETS ---
 // Path: /api/video/stream/:fileId
@@ -12,6 +13,9 @@ router.get('/stream/:fileId', videoController.streamVideo);
 
 // Path: /api/video/upload-to-drive
 router.post('/upload-to-drive', upload.single('file'), videoController.uploadToDrive);
+
+// Path: /api/video/upload-temp
+router.post('/upload-temp', uploadMemory.single('file'), videoController.uploadTempFile);
 
 // Path: /api/video/music-library
 router.get('/music-library', videoController.getMusicLibrary);

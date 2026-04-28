@@ -168,6 +168,20 @@ exports.uploadToDrive = async (req, res) => {
     }
 };
 
+exports.uploadTempFile = async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+        const tempPath = path.join(__dirname, '../../temp', `${Date.now()}_${req.file.originalname}`);
+        fs.mkdirSync(path.dirname(tempPath), { recursive: true });
+        fs.writeFileSync(tempPath, req.file.buffer);
+
+        res.json({ success: true, tempPath });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
 const resolveMediaInput = async (sourceUrl, token) => {
     if (!sourceUrl) throw new Error('Source URL is required');
 
@@ -237,10 +251,17 @@ exports.exportProject = async (req, res) => {
         const authToken = token || req.headers.authorization?.split(' ')[1];
 
         if (!layers || !layers.length) return res.status(400).json({ error: 'No layers found' });
-        if (!authToken) return res.status(400).json({ error: 'Authentication token missing' });
 
         // 🎯 Target layer identify karo
         const exportLayer = layers.find(l => l.id === selectedLayerId) || layers.find(l => ['video', 'image', 'audio'].includes(l.type));
+        if (!exportLayer) return res.status(400).json({ error: 'Nothing to export' });
+
+        const layerAsset = assets.find(a => a.id === exportLayer.assetId);
+        const sourceUrl = layerAsset?.url || exportLayer.url;
+        const needsToken = sourceUrl && (sourceUrl.includes('/api/video/stream/') || sourceUrl.includes('drive.google.com'));
+        if (needsToken && !authToken) return res.status(400).json({ error: 'Authentication token missing' });
+
+        const mainInput = await resolveMediaInput(sourceUrl, authToken);
         if (!exportLayer) return res.status(400).json({ error: 'Nothing to export' });
 
         const layerAsset = assets.find(a => a.id === exportLayer.assetId);
@@ -301,7 +322,10 @@ exports.exportProject = async (req, res) => {
         let exportCommand = ffmpeg(mainInput);
 
         if (!isAudioExport && audioLayer && exportLayer.type !== 'audio') {
-            const audioInput = await resolveMediaInput(audioLayer.url, authToken);
+            const audioSourceUrl = audioLayer.url;
+            const audioNeedsToken = audioSourceUrl && (audioSourceUrl.includes('/api/video/stream/') || audioSourceUrl.includes('drive.google.com'));
+            if (audioNeedsToken && !authToken) return res.status(400).json({ error: 'Authentication token missing for audio source' });
+            const audioInput = await resolveMediaInput(audioSourceUrl, authToken);
             if (audioInput.includes('/temp/')) tempFiles.push(audioInput);
             exportCommand = exportCommand.input(audioInput).outputOptions(['-map 0:v:0', '-map 1:a:0', '-shortest']);
         }
