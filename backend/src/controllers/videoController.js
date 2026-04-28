@@ -262,11 +262,6 @@ exports.exportProject = async (req, res) => {
         if (needsToken && !authToken) return res.status(400).json({ error: 'Authentication token missing' });
 
         const mainInput = await resolveMediaInput(sourceUrl, authToken);
-        if (!exportLayer) return res.status(400).json({ error: 'Nothing to export' });
-
-        const layerAsset = assets.find(a => a.id === exportLayer.assetId);
-        const sourceUrl = layerAsset?.url || exportLayer.url;
-        const mainInput = await resolveMediaInput(sourceUrl, authToken);
         if (mainInput.includes('/temp/')) tempFiles.push(mainInput);
 
         // 📝 Text & 🎵 Audio layers filter karo
