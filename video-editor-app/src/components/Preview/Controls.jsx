@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, RotateCcw } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, RotateCcw } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { updateCurrentTime, setIsPlaying } from '../../store/projectSlice';
 
@@ -8,25 +8,14 @@ const Controls = () => {
   const { currentTime, isPlaying, duration } = useSelector((state) => state.project);
 
   const formatTime = (seconds = 0) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
+    const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    const parts = [mins, secs].map((value) => value.toString().padStart(2, '0'));
-    return hrs > 0 ? `${hrs.toString().padStart(2, '0')}:${parts.join(':')}` : `00:${parts.join(':')}`;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handlePlayPause = () => {
-    dispatch(setIsPlaying(!isPlaying));
-  };
-
-  const handleSkipForward = () => {
-    dispatch(updateCurrentTime(currentTime + 5));
-  };
-
-  const handleSkipBack = () => {
-    dispatch(updateCurrentTime(Math.max(0, currentTime - 5)));
-  };
-
+  const handlePlayPause = () => dispatch(setIsPlaying(!isPlaying));
+  const handleSkipForward = () => dispatch(updateCurrentTime(Math.min(duration, currentTime + 5)));
+  const handleSkipBack = () => dispatch(updateCurrentTime(Math.max(0, currentTime - 5)));
   const handleReset = () => {
     dispatch(updateCurrentTime(0));
     dispatch(setIsPlaying(false));
@@ -35,53 +24,50 @@ const Controls = () => {
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <div className="absolute top-8 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[24rem] bg-[#111827]/90 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-4 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)] z-50">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.4em] text-zinc-500">Preview</div>
-          <div className="text-sm font-semibold text-white">{formatTime(currentTime)} / {formatTime(duration)}</div>
+    /* Yahan se 'absolute' aur 'top-6' hata diya gaya hai taaki ye layout mein fit ho jaye */
+    <div className="w-full bg-zinc-900/90 border-t border-white/5 py-2 px-4 shadow-xl">
+      <div className="max-w-4xl mx-auto flex items-center gap-4">
+        
+        {/* Left: Time display */}
+        <div className="flex flex-col min-w-[85px]">
+          <span className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold">Preview</span>
+          <div className="text-xs font-mono text-white/90 leading-none mt-0.5">
+            {formatTime(currentTime)} <span className="text-zinc-600">/</span> {formatTime(duration)}
+          </div>
         </div>
 
-        <button
-          onClick={handleReset}
-          className="flex items-center justify-center w-10 h-10 rounded-3xl border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 transition"
-          title="Reset playhead"
-        >
-          <RotateCcw size={16} />
-        </button>
-      </div>
+        {/* Center: Main Controls */}
+        <div className="flex items-center gap-2">
+          <button onClick={handleSkipBack} className="p-1.5 text-zinc-400 hover:text-white transition">
+            <SkipBack size={16} />
+          </button>
 
-      <div className="flex items-center justify-center gap-4 mb-3">
-        <button
-          onClick={handleSkipBack}
-          className="w-11 h-11 rounded-3xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition"
-          title="Rewind 5s"
-        >
-          <SkipBack size={18} />
-        </button>
+          <button
+            onClick={handlePlayPause}
+            className="w-9 h-9 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all"
+          >
+            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+          </button>
 
-        <button
-          onClick={handlePlayPause}
-          className="w-16 h-16 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-[0_20px_40px_-20px_rgba(255,255,255,0.8)] transition hover:scale-[1.05] active:scale-95"
-          title={isPlaying ? 'Pause' : 'Play'}
-        >
-          {isPlaying ? <Pause size={24} /> : <Play size={24} />}
-        </button>
+          <button onClick={handleSkipForward} className="p-1.5 text-zinc-400 hover:text-white transition">
+            <SkipForward size={16} />
+          </button>
 
-        <button
-          onClick={handleSkipForward}
-          className="w-11 h-11 rounded-3xl bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 transition"
-          title="Forward 5s"
-        >
-          <SkipForward size={18} />
-        </button>
-      </div>
+          <button onClick={handleReset} className="p-1.5 text-zinc-500 hover:text-zinc-300 ml-1">
+            <RotateCcw size={14} />
+          </button>
+        </div>
 
-      <div className="rounded-full bg-white/10 overflow-hidden border border-white/10 h-2">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-500 via-sky-400 to-cyan-400 shadow-[0_0_20px_rgba(56,189,248,0.45)] transition-all duration-300"
-          style={{ width: `${progress}%` }}
-        />
+        {/* Right: Full Width Progress Bar */}
+        <div className="flex-1 flex items-center h-full">
+          <div className="relative w-full h-1 bg-white/10 rounded-full overflow-hidden border border-white/5">
+            <div
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-sky-400 transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
       </div>
     </div>
   );
