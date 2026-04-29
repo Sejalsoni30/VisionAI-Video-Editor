@@ -55,6 +55,16 @@ const downloadRemoteToTemp = async (sourceUrl, token) => {
     return tempPath;
 };
 
+const parseStreamFileId = (sourceUrl) => {
+    try {
+        const parsedUrl = new URL(sourceUrl, 'http://localhost');
+        if (!parsedUrl.pathname.includes('/api/video/stream/')) return null;
+        return parsedUrl.pathname.split('/api/video/stream/')[1]?.split('/')[0];
+    } catch {
+        return null;
+    }
+};
+
 // --- ⚙️ Universal Processor (Direct Streaming) ---
 const processDriveStream = async (fileId, token, commandAction, res, type = 'video') => {
     try {
@@ -274,7 +284,26 @@ const resolveMediaInput = async (sourceUrl, token) => {
         return path.join(__dirname, '../../public', sourceUrl.replace(/^\//, ''));
     }
 
-    if (sourceUrl.includes('/api/video/stream/') || sourceUrl.includes('drive.google.com') || sourceUrl.startsWith('http')) {
+    const streamFileId = parseStreamFileId(sourceUrl);
+    if (streamFileId) {
+        const tempPath = path.join(__dirname, '../../temp', `${streamFileId}.mp4`);
+        if (fs.existsSync(tempPath)) {
+            return tempPath;
+        }
+
+        const driveStream = await getDriveStream(streamFileId, token);
+        await writeStreamToFile(driveStream, tempPath);
+        return tempPath;
+    }
+
+    if (sourceUrl.includes('drive.google.com')) {
+        const fileId = sourceUrl.match(/[-\w]{25,}/);
+        if (fileId) {
+            return await downloadRemoteToTemp(`https://www.googleapis.com/drive/v3/files/${fileId[0]}?alt=media`, token);
+        }
+    }
+
+    if (sourceUrl.startsWith('http://') || sourceUrl.startsWith('https://')) {
         return await downloadRemoteToTemp(sourceUrl, token);
     }
 
