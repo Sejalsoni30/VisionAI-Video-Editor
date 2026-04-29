@@ -71,7 +71,8 @@ const processDriveStream = async (fileId, token, commandAction, res, type = 'vid
         console.log(`🎬 Neural Processing (${type}): ${fileId}`);
         const driveStream = await getDriveStream(fileId, token);
 
-        res.setHeader('Content-Type', type === 'audio' ? 'audio/mpeg' : 'video/mp4');
+        const outputFilename = `${fileId}_${Date.now()}.${type === 'audio' ? 'mp3' : 'mp4'}`;
+        const outputPath = path.join(__dirname, '../../temp', outputFilename);
 
         let command = ffmpeg(driveStream)
             .format(type === 'audio' ? 'mp3' : 'mp4')
@@ -84,13 +85,19 @@ const processDriveStream = async (fileId, token, commandAction, res, type = 'vid
         command = commandAction(command);
 
         command
+            .output(outputPath)
             .on('start', (cmd) => console.log("🚀 FFmpeg Executing:", cmd))
             .on('error', (err) => {
                 console.error("❌ FFmpeg Error:", err.message);
                 if (!res.headersSent) res.status(500).json({ error: err.message });
             })
-            .on('end', () => console.log("✅ Neural Node Finished"))
-            .pipe(res, { end: true });
+            .on('end', () => {
+                console.log("✅ Neural Node Finished");
+                // Return the temp file URL
+                const tempUrl = `/temp/${outputFilename}`;
+                res.json({ url: tempUrl, filename: outputFilename });
+            })
+            .run();
 
     } catch (err) {
         console.error("❌ Node Error:", err.message);
@@ -279,6 +286,10 @@ exports.uploadTempFile = async (req, res) => {
 
 const resolveMediaInput = async (sourceUrl, token) => {
     if (!sourceUrl) throw new Error('Source URL is required');
+
+    if (sourceUrl.startsWith('/temp/')) {
+        return path.join(__dirname, '../../temp', sourceUrl.replace('/temp/', ''));
+    }
 
     if (sourceUrl.startsWith('/music/')) {
         return path.join(__dirname, '../../public', sourceUrl.replace(/^\//, ''));

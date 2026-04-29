@@ -119,8 +119,8 @@ const VideoTools = () => {
 
       if (!response.ok) throw new Error(`Engine Error: ${response.status}`);
 
-      const blob = await response.blob();
-      const editedVideoUrl = URL.createObjectURL(blob);
+      const data = await response.json();
+      const editedVideoUrl = `${API_URL}${data.url}`;
 
       dispatch(updateAsset({
         id: activeVideo.id,

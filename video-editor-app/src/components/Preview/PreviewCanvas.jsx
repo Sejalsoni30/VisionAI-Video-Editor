@@ -137,7 +137,7 @@ const PreviewCanvas = () => {
                 ref={el => videoRefs.current[layer.id] = el}
                 src={getStreamUrl(layer.renderUrl, layer.assetId)}
                 playsInline
-                preload={isNearby ? "auto" : "none"}
+                preload={isNearby ? "metadata" : "none"}
                 autoPlay={isPlaying && isSelected}
                 crossOrigin="anonymous"
                 className="absolute inset-0 w-full h-full object-contain"
@@ -182,7 +182,7 @@ const PreviewCanvas = () => {
                 <audio
                   ref={el => audioRefs.current[layer.id] = el}
                   src={getStreamUrl(layer.renderUrl, layer.assetId)}
-                  preload={isNearby ? "auto" : "none"}
+                  preload={isNearby ? "metadata" : "none"}
                   className="hidden"
                 />
                 {isVisible && (

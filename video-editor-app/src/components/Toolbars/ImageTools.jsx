@@ -43,8 +43,8 @@ const ImageTools = () => {
 
       if (!response.ok) throw new Error(`Engine Error: ${response.status}`);
 
-      const blob = await response.blob();
-      const editedUrl = URL.createObjectURL(blob);
+      const data = await response.json();
+      const editedUrl = `${API_URL}${data.url}`;
 
       dispatch(updateAsset({
         id: activeAsset.id,
