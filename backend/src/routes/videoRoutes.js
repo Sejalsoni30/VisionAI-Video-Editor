@@ -29,7 +29,7 @@ router.post('/rotate', videoController.rotateVideo);
 router.post('/flip', videoController.flipVideo);
 router.post('/filter', videoController.applyFilter);
 router.post('/add-text', videoController.addText);
-
+router.post('/merge', videoController.mergeVideos);
 
 // --- 📤 3. PROJECT MANAGEMENT ---
 router.post('/export', videoController.exportProject);

@@ -1,5 +1,3 @@
-@import "tailwindcss";
-
 /* ✨ NAYA: Editor Layout Fix (Terminal khulne par hide na ho) */
 .editor-container {
   display: flex;

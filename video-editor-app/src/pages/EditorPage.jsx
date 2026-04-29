@@ -11,6 +11,7 @@ import ImageTools from '../components/Toolbars/ImageTools';
 import AudioTools from '../components/Toolbars/AudioTools';
 import TextPanel from '../components/Panels/TextPanel';
 import VideoEffectsPanel from '../components/Panels/VideoEffectsPanel';
+import ImageAdjustPanel from '../components/Panels/ImageAdjustPanel';
 import SettingsPanel from '../components/Panels/SettingsPanel';
 import AssetLibrary from '../components/Editor/AssetLibrary';
 import MusicLibrary from '../components/Panels/MusicLibrary';
@@ -51,7 +52,7 @@ const EditorPage = () => {
     switch (activeTab) {
       case 'assets': return <AssetLibrary />;
       case 'video': return <VideoEffectsPanel />;
-      case 'image': return <VideoEffectsPanel />;
+      case 'image': return <ImageAdjustPanel />;
       case 'audio': return <MusicLibrary />;
       case 'text': return <TextPanel />;
       case 'settings': return <SettingsPanel />;

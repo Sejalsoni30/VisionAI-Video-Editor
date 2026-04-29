@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Palette, Maximize2, Layers, Wand2, Crop, 
-  Loader2, Plus, Sparkles, MoveDiagonal, 
-  RefreshCcw, Flame 
+  Wand2, Crop, Loader2, Sparkles, RefreshCcw, Flame 
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -133,18 +131,6 @@ const ImageTools = () => {
           disabled={!activeAsset || isProcessingLocal}
           onClick={() => handleAction('resize', { size: '3840x2160' })}
           className={`${btnClass} text-rose-500 hover:bg-rose-500/10`}
-        />
-        <IconButton
-          icon={Plus}
-          tooltip="Neural Merge"
-          disabled={layers.length < 2 || isProcessingLocal}
-          onClick={() => {
-            const videoUrls = layers
-              .map(l => assets.find(a => a.id === l.assetId)?.url)
-              .filter(Boolean);
-            handleAction('merge', { videoUrls });
-          }}
-          className={`${btnClass} text-emerald-400 hover:bg-emerald-400/10`}
         />
       </div>
 

@@ -12,7 +12,16 @@ const { Readable } = require('stream');
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
-// --- ⚙️ HELPER: Google Drive Stream Fetcher ---
+const writeStreamToFile = (stream, filePath) => {
+    return new Promise((resolve, reject) => {
+        const writeStream = fs.createWriteStream(filePath);
+        stream.pipe(writeStream);
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+        stream.on('error', reject);
+    });
+};
+
 const getDriveStream = async (fileId, token) => {
     const oauth2Client = new google.auth.OAuth2();
     oauth2Client.setCredentials({ access_token: token });
@@ -23,6 +32,27 @@ const getDriveStream = async (fileId, token) => {
         { responseType: 'stream' }
     );
     return response.data;
+};
+
+const downloadRemoteToTemp = async (sourceUrl, token) => {
+    const parsedUrl = new URL(sourceUrl, 'http://localhost');
+    const filename = path.basename(parsedUrl.pathname) || `remote-${Date.now()}`;
+    const tempPath = path.join(__dirname, '../../temp', `${Date.now()}_${filename}`);
+    fs.mkdirSync(path.dirname(tempPath), { recursive: true });
+
+    const headers = {};
+    if (token && !sourceUrl.includes(`token=${token}`)) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await axios.get(sourceUrl, {
+        responseType: 'stream',
+        headers,
+        timeout: 60000,
+    });
+
+    await writeStreamToFile(response.data, tempPath);
+    return tempPath;
 };
 
 // --- ⚙️ Universal Processor (Direct Streaming) ---
@@ -127,11 +157,66 @@ exports.splitVideo = (req, res) => {
     processDriveStream(fileId, token, (f) => f.setStartTime(start || 0).setDuration(duration), res);
 };
 
-// Merge (Currently returns first stream, multi-stream merging needs temp files)
-exports.mergeVideos = (req, res) => {
-    const { fileId, token } = req.body;
-    // Simple response to prevent crash, merging requires complex Temp FS logic
-    processDriveStream(fileId, token, (f) => f, res);
+exports.mergeVideos = async (req, res) => {
+    const tempFiles = [];
+    try {
+        const { videoUrls = [], token } = req.body;
+        if (!Array.isArray(videoUrls) || videoUrls.length < 2) {
+            return res.status(400).json({ error: 'Provide at least two video URLs to merge.' });
+        }
+
+        const inputs = [];
+        for (const sourceUrl of videoUrls) {
+            if (!sourceUrl) continue;
+            const resolvedInput = await resolveMediaInput(sourceUrl, token);
+            inputs.push(resolvedInput);
+            if (resolvedInput.includes('/temp/')) tempFiles.push(resolvedInput);
+        }
+
+        if (inputs.length < 2) {
+            return res.status(400).json({ error: 'No valid video inputs for merge.' });
+        }
+
+        const fileListPath = path.join(__dirname, '../../temp', `concat_list_${Date.now()}.txt`);
+        fs.writeFileSync(fileListPath, inputs.map(input => `file '${input.replace(/'/g, "'\\''")}'`).join('\n'));
+        tempFiles.push(fileListPath);
+
+        const outputPath = path.join(__dirname, '../../temp', `merged_${Date.now()}.mp4`);
+        tempFiles.push(outputPath);
+        fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+
+        const mergeCommand = ffmpeg()
+            .input(fileListPath)
+            .inputOptions(['-f concat', '-safe 0'])
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .outputOptions(['-preset ultrafast', '-movflags +faststart', '-shortest', '-pix_fmt yuv420p'])
+            .format('mp4')
+            .output(outputPath);
+
+        mergeCommand
+            .on('start', (cmd) => console.log('🚀 Merge Executing:', cmd))
+            .on('error', (err) => {
+                console.error('❌ Merge Failed:', err.message);
+                tempFiles.forEach(filePath => { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); });
+                if (!res.headersSent) res.status(500).json({ error: 'Video merge failed.' });
+            })
+            .on('end', () => {
+                console.log('✅ Merge completed successfully');
+                res.setHeader('Content-Type', 'video/mp4');
+                res.download(outputPath, 'merged_video.mp4', (downloadError) => {
+                    tempFiles.forEach(filePath => { try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (err) { console.error(err.message); } });
+                    if (downloadError && !res.headersSent) {
+                        res.status(500).json({ error: 'Failed to send merged file.' });
+                    }
+                });
+            })
+            .run();
+    } catch (err) {
+        console.error('❌ Merge Error:', err.message);
+        tempFiles.forEach(filePath => { try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (inner) { console.error(inner.message); } });
+        if (!res.headersSent) res.status(500).json({ error: err.message });
+    }
 };
 
 // --- 🛠️ 3. AUDIO ACTIONS ---
@@ -189,42 +274,11 @@ const resolveMediaInput = async (sourceUrl, token) => {
         return path.join(__dirname, '../../public', sourceUrl.replace(/^\//, ''));
     }
 
-    if (sourceUrl.includes('/api/video/stream/')) {
-        const fileId = sourceUrl.split('/stream/')[1].split('?')[0];
-        const stream = await getDriveStream(fileId, token);
-        const tempPath = path.join(__dirname, '../../temp', `${fileId}_${Date.now()}.mp4`);
-        fs.mkdirSync(path.dirname(tempPath), { recursive: true });
-        const writeStream = fs.createWriteStream(tempPath);
-        stream.pipe(writeStream);
-        await new Promise((resolve, reject) => {
-            writeStream.on('finish', resolve);
-            writeStream.on('error', reject);
-            stream.on('error', reject);
-        });
-        return tempPath;
+    if (sourceUrl.includes('/api/video/stream/') || sourceUrl.includes('drive.google.com') || sourceUrl.startsWith('http')) {
+        return await downloadRemoteToTemp(sourceUrl, token);
     }
 
-    if (sourceUrl.includes('drive.google.com')) {
-        const fileId = sourceUrl.split('/d/')[1]?.split('/')[0];
-        if (!fileId) throw new Error('Invalid Google Drive URL');
-        const stream = await getDriveStream(fileId, token);
-        const tempPath = path.join(__dirname, '../../temp', `${fileId}_${Date.now()}.mp4`);
-        fs.mkdirSync(path.dirname(tempPath), { recursive: true });
-        const writeStream = fs.createWriteStream(tempPath);
-        stream.pipe(writeStream);
-        await new Promise((resolve, reject) => {
-            writeStream.on('finish', resolve);
-            writeStream.on('error', reject);
-            stream.on('error', reject);
-        });
-        return tempPath;
-    }
-
-    if (sourceUrl.startsWith('http')) {
-        return sourceUrl;
-    }
-
-    // Assume it's a local file path
+    // Assume it's a local file path already available on disk
     return sourceUrl;
 };
 
@@ -445,24 +499,45 @@ exports.streamVideo = async (req, res) => {
 
         console.log(`🎥 Neural Stream Triggered for ID: ${fileId}`);
 
-        // Google Drive se stream mangwao
-        const driveStream = await getDriveStream(fileId, token);
+        const tempPath = path.join(__dirname, '../../temp', `${fileId}.mp4`);
+        if (!fs.existsSync(tempPath)) {
+            const driveStream = await getDriveStream(fileId, token);
+            await writeStreamToFile(driveStream, tempPath);
+        }
 
-        // 🎯 Optimize video streaming with proper headers
+        const stat = fs.statSync(tempPath);
+        const fileSize = stat.size;
+        const range = req.headers.range;
+
         res.setHeader('Content-Type', 'video/mp4');
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
-        
-        // 💾 Cache headers: browser should cache the video for 1 hour
         res.setHeader('Cache-Control', 'public, max-age=3600');
         res.setHeader('ETag', `"${fileId}"`);
-        
-        // 🔄 Support range requests for faster seeking
         res.setHeader('Accept-Ranges', 'bytes');
-        
-        // Data ko seedha frontend video tag mein bhejo
-        driveStream.pipe(res);
+
+        if (range) {
+            const parts = range.replace(/bytes=/, '').split('-');
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+            if (start >= fileSize || end >= fileSize) {
+                res.status(416).setHeader('Content-Range', `bytes */${fileSize}`);
+                return res.end();
+            }
+
+            const chunkSize = (end - start) + 1;
+            res.status(206);
+            res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+            res.setHeader('Content-Length', chunkSize);
+
+            const stream = fs.createReadStream(tempPath, { start, end });
+            stream.pipe(res);
+        } else {
+            res.setHeader('Content-Length', fileSize);
+            fs.createReadStream(tempPath).pipe(res);
+        }
 
     } catch (error) {
         console.error("❌ Stream Error:", error.message);

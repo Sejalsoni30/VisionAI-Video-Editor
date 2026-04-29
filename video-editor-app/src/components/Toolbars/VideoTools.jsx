@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Scissors, Timer, RotateCcw, Volume2, 
   Loader2, Zap, PlayCircle, FastForward, 
-  Wind, Film 
+  Wind, Film, Layers 
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,6 +20,79 @@ const VideoTools = () => {
   const getActiveVideo = () => {
     const layer = layers.find(l => l.id === selectedLayerId);
     return layer ? assets.find(a => a.id === layer.assetId) : null;
+  };
+
+  const uploadBlobTemp = async (blobUrl) => {
+    const response = await fetch(blobUrl);
+    const blob = await response.blob();
+    const formData = new FormData();
+    formData.append('file', blob, `merged_${Date.now()}.mp4`);
+
+    const uploadResponse = await fetch(`${API_URL}/api/video/upload-temp`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!uploadResponse.ok) throw new Error('Blob upload failed for merge');
+    const uploadData = await uploadResponse.json();
+    return uploadData.tempPath;
+  };
+
+  const activeVideo = getActiveVideo();
+
+  const handleMerge = async () => {
+    const token = localStorage.getItem('googleDriveToken');
+    if (!token) return alert("Security Token Missing. Please Re-login.");
+
+    const videoUrls = layers
+      .filter(layer => layer.type === 'video')
+      .map(layer => assets.find(a => a.id === layer.assetId)?.url)
+      .filter(Boolean);
+
+    if (videoUrls.length < 2) {
+      return alert('Select at least two video layers for merge.');
+    }
+
+    setIsProcessingLocal(true);
+    dispatch(setIsProcessing(true));
+    setStatusMsg('Neural merge in progress...');
+
+    try {
+      const uploadPromises = videoUrls.map(async (url) => {
+        if (url.startsWith('blob:')) {
+          return await uploadBlobTemp(url);
+        }
+        return url;
+      });
+
+      const resolvedUrls = await Promise.all(uploadPromises);
+
+      const response = await fetch(`${API_URL}/api/video/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrls: resolvedUrls, token }),
+      });
+
+      if (!response.ok) throw new Error(`Merge Engine Error: ${response.status}`);
+
+      const blob = await response.blob();
+      const mergedUrl = URL.createObjectURL(blob);
+
+      if (activeVideo) {
+        dispatch(updateAsset({
+          id: activeVideo.id,
+          updates: { url: mergedUrl, lastAction: 'merge' }
+        }));
+      }
+
+      console.log('✅ Videos merged successfully');
+    } catch (err) {
+      console.error('❌ Merge Failure:', err);
+    } finally {
+      setIsProcessingLocal(false);
+      dispatch(setIsProcessing(false));
+      setStatusMsg('');
+    }
   };
 
   const handleAction = async (actionType, params = {}) => {
@@ -64,8 +137,6 @@ const VideoTools = () => {
       setStatusMsg('');
     }
   };
-
-  const activeVideo = getActiveVideo();
 
   return (
     <motion.div 
@@ -146,6 +217,12 @@ const VideoTools = () => {
           onClick={() => handleAction('filter', { filterType: 'cinematic' })}
           tooltip="AI Cinematic LUT"
           className="text-purple-500 hover:bg-purple-500/10 animate-pulse"
+        />
+        <IconButton
+          icon={Layers}
+          onClick={handleMerge}
+          tooltip="Merge Videos"
+          className="text-emerald-400 hover:bg-emerald-400/10"
         />
       </div>
 

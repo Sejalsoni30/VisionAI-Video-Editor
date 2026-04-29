@@ -75,14 +75,18 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
       <motion.div
         whileHover={{ scale: 1.05, rotate: 5 }}
         whileTap={{ scale: 0.95 }}
-        className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-[1.2rem] flex items-center justify-center shadow-[0_8px_20px_rgba(37,99,235,0.35)] mb-8 cursor-pointer group"
+        className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-[1.2rem] flex items-center justify-center shadow-[0_8px_20px_rgba(37,99,235,0.35)] mb-4 cursor-pointer group"
         onClick={() => setActiveTab('assets')} // Logo par click se home/assets par jao
       >
         <Zap size={22} className="text-white fill-current group-hover:animate-pulse" />
       </motion.div>
 
       {/* 📤 Upload Area */}
-     
+      <label className="mb-6 flex flex-col items-center gap-2 px-3 py-3 rounded-3xl bg-white/5 border border-white/10 text-zinc-300 text-[11px] text-center cursor-pointer hover:bg-white/10 transition-all">
+        <Upload size={18} className="text-blue-400" />
+        <span className="text-[10px] font-semibold">Upload</span>
+        <input type="file" accept="image/*,video/*,audio/*" onChange={handleFileChange} className="hidden" />
+      </label>
 
       <div className="w-8 h-[1px] bg-white/5 mb-6"></div>
 
