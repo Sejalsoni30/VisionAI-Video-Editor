@@ -442,7 +442,7 @@ exports.exportProject = async (req, res) => {
                     '-movflags frag_keyframe+empty_moov+default_base_moof',
                     '-fflags +genpts',
                     '-avoid_negative_ts make_zero',
-                    '-crf 23',
+                    '-crf 28',
                     '-threads 1'
                 ])
         }
